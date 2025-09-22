@@ -1,0 +1,5 @@
+export { default as ClusterStatusWidget } from './ClusterStatusWidget'
+export { default as RecentDeploymentsWidget } from './RecentDeploymentsWidget'
+export { default as ResourceUsageWidget } from './ResourceUsageWidget'
+export { default as AlertsWidget } from './AlertsWidget'
+export { default as QuickActionsWidget } from './QuickActionsWidget'

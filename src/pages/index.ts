@@ -1,0 +1,8 @@
+export { default as Dashboard } from './Dashboard'
+export { default as Kubernetes } from './Kubernetes'
+export { default as Deployments } from './Deployments'
+export { default as Monitoring } from './Monitoring'
+export { default as Settings } from './Settings'
+export { default as Login } from './Login'
+export { default as Register } from './Register'
+export { default as AuthCallback } from './AuthCallback'
