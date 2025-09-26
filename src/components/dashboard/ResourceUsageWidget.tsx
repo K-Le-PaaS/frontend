@@ -58,7 +58,7 @@ export const ResourceUsageWidget: React.FC<ResourceUsageWidgetProps> = ({ classN
     used: number
     total: number
     percentage: number
-    icon: React.ComponentType<any>
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
     format?: (value: number) => string
   }) => (
     <div className="space-y-2">

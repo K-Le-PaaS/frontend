@@ -98,7 +98,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         sidebarOpen: !state.sidebarOpen,
       }
     
-    case 'ADD_NOTIFICATION':
+    case 'ADD_NOTIFICATION': {
       const notification: Notification = {
         ...action.payload,
         id: Date.now().toString(),
@@ -109,6 +109,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         ...state,
         notifications: [notification, ...state.notifications],
       }
+    }
     
     case 'REMOVE_NOTIFICATION':
       return {

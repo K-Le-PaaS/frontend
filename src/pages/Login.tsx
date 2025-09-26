@@ -4,6 +4,7 @@ import { Card, Button, Input, Alert } from '@/components'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoginCredentials } from '@/types'
 import { Eye, EyeOff, Github, Mail } from 'lucide-react'
+import { AuthService } from '@/services/authService'
 
 const Login: React.FC = () => {
   const [formData, setFormData] = useState<LoginCredentials>({
@@ -61,7 +62,7 @@ const Login: React.FC = () => {
 
       // OAuth2 인증 URL 가져오기
       const redirectUri = `${window.location.origin}/auth/callback`
-      const authService = new (await import('@/services/authService')).AuthService()
+      const authService = new AuthService()
       let authUrl = await authService.getOAuth2Url(provider, redirectUri)
       
       // state 파라미터 추가 (provider 정보를 callback에서 사용)
