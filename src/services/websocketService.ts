@@ -1,15 +1,17 @@
 // EventEmitter를 직접 구현
-class EventEmitter {
-  private events: { [key: string]: Function[] } = {};
+type EventListener = (...args: any[]) => void
 
-  on(event: string, listener: Function) {
+class EventEmitter {
+  private events: { [key: string]: EventListener[] } = {};
+
+  on(event: string, listener: EventListener) {
     if (!this.events[event]) {
       this.events[event] = [];
     }
     this.events[event].push(listener);
   }
 
-  off(event: string, listener: Function) {
+  off(event: string, listener: EventListener) {
     if (!this.events[event]) return;
     this.events[event] = this.events[event].filter(l => l !== listener);
   }

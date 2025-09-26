@@ -22,7 +22,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation()
 
   // 개발 모드에서는 인증 우회 (임시)
-  const isDevelopment = (import.meta as any).env?.MODE === 'development'
+  const isDevelopment = false // 임시로 비활성화
   
   if (isDevelopment) {
     return <>{children}</>

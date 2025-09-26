@@ -81,7 +81,7 @@ const TutorialStep: React.FC<TutorialStepProps> = ({
                     className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors"
                   >
                     <code className="text-sm text-blue-700 font-mono">
-                      "{example}"
+                      &ldquo;{example}&rdquo;
                     </code>
                   </div>
                 ))}

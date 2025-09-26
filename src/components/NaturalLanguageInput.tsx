@@ -95,7 +95,7 @@ const NaturalLanguageInput: React.FC<NaturalLanguageInputProps> = ({
               className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 transition-colors"
             >
               <code className="text-sm text-gray-700 flex-1 mr-2">
-                "{example}"
+                &ldquo;{example}&rdquo;
               </code>
               <div className="flex space-x-1">
                 <button
@@ -125,9 +125,9 @@ const NaturalLanguageInput: React.FC<NaturalLanguageInputProps> = ({
           <div className="text-sm text-blue-800">
             <p className="font-medium mb-1">💡 자연어 명령 팁:</p>
             <ul className="space-y-1 text-xs">
-              <li>• 구체적인 앱 이름과 환경을 명시하세요 (예: "hello-world", "스테이징")</li>
-              <li>• 원하는 동작을 명확히 표현하세요 (예: "배포해줘", "상태 확인해줘")</li>
-              <li>• 질문 형태로도 가능합니다 (예: "앱이 정상적으로 실행되고 있나?")</li>
+              <li>• 구체적인 앱 이름과 환경을 명시하세요 (예: &ldquo;hello-world&rdquo;, &ldquo;스테이징&rdquo;)</li>
+              <li>• 원하는 동작을 명확히 표현하세요 (예: &ldquo;배포해줘&rdquo;, &ldquo;상태 확인해줘&rdquo;)</li>
+              <li>• 질문 형태로도 가능합니다 (예: &ldquo;앱이 정상적으로 실행되고 있나?&rdquo;)</li>
             </ul>
           </div>
         </div>

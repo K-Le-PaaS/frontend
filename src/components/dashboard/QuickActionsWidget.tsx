@@ -23,6 +23,8 @@ interface QuickActionsWidgetProps {
 
 export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({ className }) => {
   const { dashboardData } = useDashboard()
+  const { user } = useAuth()
+  const permissions = usePermissions(user?.role ?? 'viewer')
   
   if (!dashboardData?.quickActions) {
     return (
@@ -35,11 +37,9 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({ classNam
   }
 
   const data = dashboardData.quickActions
-  const { user } = useAuth()
-  const permissions = user ? usePermissions(user.role) : null
 
   const getActionIcon = (iconName: string) => {
-    const iconMap: Record<string, React.ComponentType<any>> = {
+    const iconMap: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
       'plus': PlusCircle,
       'git': GitBranch,
       'server': Server,
@@ -58,7 +58,6 @@ export const QuickActionsWidget: React.FC<QuickActionsWidgetProps> = ({ classNam
 
   const canPerformAction = (action: { permissions: string[]; enabled: boolean }) => {
     if (!action.enabled) return false
-    if (!permissions) return false
     return action.permissions.length === 0 || permissions.hasAnyPermission(action.permissions)
   }
 

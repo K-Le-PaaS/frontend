@@ -3,17 +3,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies for ARM64
-RUN apk add --no-cache python3 make g++
-
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with specific rollup binary
-RUN rm -rf node_modules package-lock.json && \
-    npm install --omit=dev && \
-    npm install @rollup/rollup-linux-arm64-musl --save-optional && \
-    npm cache clean --force
+# Install all dependencies (including dev) for build tools like TypeScript/Vite
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -30,7 +24,7 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Set proper permissions for existing nginx user
+# Ensure proper permissions for runtime dirs and content
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/log/nginx && \
@@ -39,6 +33,6 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
 # Switch to non-root user
 USER nginx
 
-EXPOSE 80
+EXPOSE 3000
 
 CMD ["nginx", "-g", "daemon off;"]
