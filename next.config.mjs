@@ -2,6 +2,8 @@
 const nextConfig = {
   output: 'standalone',
   experimental: { optimizeCss: false },
+  basePath: '/console',
+  assetPrefix: '/console',
   async rewrites() {
     return [
       {
@@ -12,6 +14,12 @@ const nextConfig = {
         source: '/mcp/:path*',
         destination: 'http://localhost:8000/mcp/:path*',
       },
+    ]
+  },
+  async redirects() {
+    return [
+      // Avoid double basePath (/console/console)
+      { source: '/', destination: '/console', permanent: false, basePath: false },
     ]
   },
 }
