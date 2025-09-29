@@ -7,6 +7,8 @@ import { Github, Chrome } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { apiClient } from "@/lib/api"
 
+type OAuthUrlResponse = { auth_url: string }
+
 interface LoginModalProps {
   isOpen: boolean
   onClose: () => void
@@ -22,7 +24,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setIsLoading(true)
     try {
       // Google OAuth2 인증 URL 가져오기
-      const response = await apiClient.getOAuth2Url('google')
+      const response = await apiClient.getOAuth2Url('google') as OAuthUrlResponse
       const authUrl = response.auth_url
       
       // 새 창에서 OAuth2 인증 페이지 열기
@@ -69,7 +71,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setIsLoading(true)
     try {
       // GitHub OAuth2 인증 URL 가져오기
-      const response = await apiClient.getOAuth2Url('github')
+      const response = await apiClient.getOAuth2Url('github') as OAuthUrlResponse
       const authUrl = response.auth_url
       
       // 새 창에서 OAuth2 인증 페이지 열기

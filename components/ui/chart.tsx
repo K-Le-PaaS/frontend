@@ -106,27 +106,28 @@ const ChartTooltip = RechartsPrimitive.Tooltip
 
 function ChartTooltipContent({
   active,
-  payload,
   className,
   indicator = 'dot',
   hideLabel = false,
   hideIndicator = false,
-  label,
-  labelFormatter,
-  labelClassName,
-  formatter,
-  color,
-  nameKey,
-  labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
+  ...rest
+}: Omit<React.ComponentProps<typeof RechartsPrimitive.Tooltip>, 'content'> &
   React.ComponentProps<'div'> & {
     hideLabel?: boolean
     hideIndicator?: boolean
     indicator?: 'line' | 'dot' | 'dashed'
-    nameKey?: string
-    labelKey?: string
   }) {
   const { config } = useChart()
+  const payload = (rest as unknown as { payload?: any[] })?.payload
+  const {
+    label,
+    labelFormatter,
+    labelClassName,
+    formatter,
+    color,
+    nameKey,
+    labelKey,
+  } = (rest as any) || {}
 
   const tooltipLabel = React.useMemo(() => {
     if (hideLabel || !payload?.length) {
@@ -154,15 +155,7 @@ function ChartTooltipContent({
     }
 
     return <div className={cn('font-medium', labelClassName)}>{value}</div>
-  }, [
-    label,
-    labelFormatter,
-    payload,
-    hideLabel,
-    labelClassName,
-    config,
-    labelKey,
-  ])
+  }, [label, labelFormatter, payload, hideLabel, labelClassName, config, labelKey])
 
   if (!active || !payload?.length) {
     return null
@@ -256,11 +249,12 @@ function ChartLegendContent({
   payload,
   verticalAlign = 'bottom',
   nameKey,
-}: React.ComponentProps<'div'> &
-  Pick<RechartsPrimitive.LegendProps, 'payload' | 'verticalAlign'> & {
-    hideIcon?: boolean
-    nameKey?: string
-  }) {
+}: React.ComponentProps<'div'> & {
+  payload?: any[]
+  verticalAlign?: 'top' | 'bottom'
+  hideIcon?: boolean
+  nameKey?: string
+}) {
   const { config } = useChart()
 
   if (!payload?.length) {

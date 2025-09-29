@@ -35,7 +35,7 @@ export function DashboardOverview() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const dashboardData = await apiClient.getDashboardData()
+        const dashboardData = await apiClient.getDashboardData() as DashboardData
         setData(dashboardData)
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)

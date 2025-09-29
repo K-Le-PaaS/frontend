@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-export default function OAuth2CallbackPage() {
+function CallbackInner() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -79,5 +79,13 @@ export default function OAuth2CallbackPage() {
         <p>로그인 처리 중...</p>
       </div>
     </div>
+  )
+}
+
+export default function OAuth2CallbackPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><p>로그인 처리 중...</p></div>}>
+      <CallbackInner />
+    </Suspense>
   )
 }

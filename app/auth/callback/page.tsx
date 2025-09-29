@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect } from "react"
+import { Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api"
 
-export default function AuthCallbackPage() {
+function CallbackInner() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -21,13 +21,14 @@ export default function AuthCallbackPage() {
         try {
           // 백엔드 API를 호출하여 토큰 교환 및 사용자 정보 가져오기
           const redirectUri = 'http://localhost:3000/auth/callback'
+          type OAuthResponse = { success: boolean; user?: any; access_token?: string; message?: string }
           const response = await apiClient.loginWithOAuth2(
             provider as 'google' | 'github',
             code,
             redirectUri
-          )
+          ) as OAuthResponse
 
-          if (response.success) {
+          if (response && response.success === true) {
             // 부모 창으로 사용자 정보와 JWT 토큰 전달
             window.opener.postMessage({
               type: 'OAUTH2_SUCCESS',
@@ -66,5 +67,13 @@ export default function AuthCallbackPage() {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <p>로그인 처리 중...</p>
     </div>
+  )
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-gray-100"><p>로그인 처리 중...</p></div>}>
+      <CallbackInner />
+    </Suspense>
   )
 }

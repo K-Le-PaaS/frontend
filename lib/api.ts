@@ -7,7 +7,7 @@ class ApiClient {
     this.baseURL = baseURL
   }
 
-  private async request<T>(
+  private async request<T = any>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -72,13 +72,9 @@ class ApiClient {
     })
   }
 
-  async getCurrentUser() {
-    return this.request('/api/auth/me')
-  }
-
   // Dashboard endpoints
   async getDashboardData() {
-    return this.request('/api/v1/dashboard/overview')
+    return this.request<any>('/api/v1/dashboard/overview')
   }
 
   async getDeployments() {
@@ -123,26 +119,21 @@ class ApiClient {
 
   // GitHub endpoints
   async getGitHubInstallations() {
-    return this.request('/api/v1/github/app/installations')
+    return this.request<any>('/api/v1/github/app/installations')
   }
 
   async getGitHubInstallationToken(installationId: string) {
-    return this.request(`/api/v1/github/app/installations/${installationId}/token`, {
+    return this.request<any>(`/api/v1/github/app/installations/${installationId}/token`, {
       method: 'POST',
     })
   }
 
   async getGitHubRepositories() {
-    return this.request('/api/v1/github/repositories')
+    return this.request<any>('/api/v1/github/repositories')
   }
 
-  async getGitHubPullRequests() {
-    return this.request('/api/v1/github/pull-requests')
-  }
-
-  async getGitHubPipelines() {
-    return this.request('/api/v1/github/pipelines')
-  }
+  // Removed no-arg PR/Pipeline getters to avoid duplicate implementations;
+  // use userId-specific versions defined below.
 
   async installGitHubWorkflow(data: {
     owner: string
@@ -155,49 +146,49 @@ class ApiClient {
     author_name?: string
     author_email?: string
   }) {
-    return this.request('/api/v1/github/workflows/install', {
+    return this.request<any>('/api/v1/github/workflows/install', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
   async getGitHubAppInstallUrl() {
-    return this.request('/api/v1/github/app/install-url')
+    return this.request<any>('/api/v1/github/app/install-url')
   }
 
   async checkRepositoryInstallation(owner: string, repo: string) {
-    return this.request(`/api/v1/github/repositories/check-installation?owner=${owner}&repo=${repo}`, {
+    return this.request<any>(`/api/v1/github/repositories/check-installation?owner=${owner}&repo=${repo}`, {
       method: 'POST',
     })
   }
 
   async connectRepository(owner: string, repo: string, userId: string = "default", userEmail: string = "user@example.com") {
-    return this.request(`/api/v1/github/repositories/connect?owner=${owner}&repo=${repo}&user_id=${userId}&user_email=${userEmail}`, {
+    return this.request<any>(`/api/v1/github/repositories/connect?owner=${owner}&repo=${repo}&user_id=${userId}&user_email=${userEmail}`, {
       method: 'POST',
     })
   }
 
   async getConnectedRepositories(userId: string = "default") {
-    return this.request(`/api/v1/github/repositories/connected?user_id=${userId}`)
+    return this.request<any>(`/api/v1/github/repositories/connected?user_id=${userId}`)
   }
 
   async getGitHubPullRequests(userId: string = "default") {
-    return this.request(`/api/v1/github/pull-requests?user_id=${userId}`)
+    return this.request<any>(`/api/v1/github/pull-requests?user_id=${userId}`)
   }
 
   async getGitHubPipelines(userId: string = "default") {
-    return this.request(`/api/v1/github/pipelines?user_id=${userId}`)
+    return this.request<any>(`/api/v1/github/pipelines?user_id=${userId}`)
   }
 
   // OAuth2 로그인
   async getOAuth2Url(provider: 'google' | 'github') {
     // 기존에 사용한 리디렉션 URI 사용
     const redirectUri = 'http://localhost:3000/auth/callback'
-    return this.request(`/api/v1/auth/oauth2/url/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`)
+    return this.request<any>(`/api/v1/auth/oauth2/url/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`)
   }
 
   async loginWithOAuth2(provider: 'google' | 'github', code: string, redirectUri: string) {
-    return this.request('/api/v1/auth/oauth2/login', {
+    return this.request<any>('/api/v1/auth/oauth2/login', {
       method: 'POST',
       body: JSON.stringify({
         provider,
@@ -209,12 +200,12 @@ class ApiClient {
 
   // JWT 토큰 검증
   async verifyToken() {
-    return this.request('/api/v1/auth/verify')
+    return this.request<any>('/api/v1/auth/verify')
   }
 
   // 현재 사용자 정보 조회
   async getCurrentUser() {
-    return this.request('/api/v1/auth/me')
+    return this.request<any>('/api/v1/auth/me')
   }
 }
 

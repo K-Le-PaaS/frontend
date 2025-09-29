@@ -51,6 +51,7 @@ interface PullRequest {
 
 interface Pipeline {
   id: string
+  repository?: string
   branch: string
   commit: string
   status: "success" | "failed" | "running" | "pending" | "cancelled"
@@ -160,7 +161,7 @@ const mockPipelines: Pipeline[] = [
     branch: "main",
     commit: "abc123f",
     status: "success",
-    startedAt: new Date(Date.now() - 900000),
+    startedAt: new Date(Date.now() - 900000).toISOString(),
     duration: 420,
     stages: [
       { name: "Build", status: "success" },
@@ -174,7 +175,8 @@ const mockPipelines: Pipeline[] = [
     branch: "feature/auth-flow",
     commit: "def456g",
     status: "running",
-    startedAt: new Date(Date.now() - 300000),
+    startedAt: new Date(Date.now() - 300000).toISOString(),
+    duration: 0,
     stages: [
       { name: "Build", status: "success" },
       { name: "Test", status: "running" },
@@ -272,17 +274,21 @@ export function GitHubIntegrationPanel() {
       }
       
       // 실제 GitHub API 호출
+      type ReposResponse = { repositories: Repository[] }
+      type GroupedPRsResponse = { repositories: RepositoryData[] }
+      type GroupedPipelinesResponse = { repositories: RepositoryData[] }
+
       const [reposData, prsData, pipelinesData] = await Promise.all([
         apiClient.getConnectedRepositories(userId), // 연동된 리포지토리 목록
         apiClient.getGitHubPullRequests(userId),
         apiClient.getGitHubPipelines(userId)
-      ])
+      ]) as [ReposResponse, GroupedPRsResponse, GroupedPipelinesResponse]
       
       console.log('GitHub API responses:', { reposData, prsData, pipelinesData })
       
-                  const repos = reposData.repositories || []
-                  const prRepos = prsData.repositories || []
-                  const pipelineRepos = pipelinesData.repositories || []
+                  const repos = (reposData?.repositories ?? []) as Repository[]
+                  const prRepos = (prsData?.repositories ?? []) as RepositoryData[]
+                  const pipelineRepos = (pipelinesData?.repositories ?? []) as RepositoryData[]
                   
                   console.log('Processed data:', { repos, prRepos, pipelineRepos })
                   
@@ -414,9 +420,10 @@ export function GitHubIntegrationPanel() {
       const [, owner, repo] = urlMatch
       
       // 1. 먼저 GitHub App이 설치되어 있는지 확인
-      const installationCheck = await apiClient.checkRepositoryInstallation(owner, repo)
+      type InstallationCheck = { installed: boolean; repository?: string; installation_id?: string | number }
+      const installationCheck = await apiClient.checkRepositoryInstallation(owner, repo) as InstallationCheck
       
-                  if (installationCheck.installed) {
+                  if (installationCheck.installed === true) {
                     // 2. 설치되어 있으면 리포지토리 연동 및 워크플로우 설치 시도
                     try {
                       // 로그인하지 않은 경우 연결 불가
@@ -444,7 +451,8 @@ export function GitHubIntegrationPanel() {
         }
       } else {
         // 3. 설치되어 있지 않으면 설치 링크로 이동
-        const installUrlData = await apiClient.getGitHubAppInstallUrl()
+        type InstallUrlResponse = { install_url: string }
+        const installUrlData = await apiClient.getGitHubAppInstallUrl() as InstallUrlResponse
         const installUrl = installUrlData.install_url
         
         // 새 탭에서 GitHub App 설치 페이지 열기
@@ -486,7 +494,7 @@ export function GitHubIntegrationPanel() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.activePRs}</div>
             <p className="text-xs text-muted-foreground">
-              {pullRequests.filter(pr => pr.ciStatus === "success").length} CI successful
+              {pullRequests.reduce((sum, repo) => sum + ((repo.pullRequests?.filter(p => p.ciStatus === "success").length) || 0), 0)} CI successful
             </p>
           </CardContent>
         </Card>
@@ -499,7 +507,7 @@ export function GitHubIntegrationPanel() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.runningPipelines}</div>
             <p className="text-xs text-muted-foreground">
-              {pipelines.filter(p => p.status === "success").length} completed recently
+              {pipelines.reduce((sum, repo) => sum + ((repo.pipelines?.filter(pl => pl.status === "success").length) || 0), 0)} completed recently
             </p>
           </CardContent>
         </Card>
