@@ -1,0 +1,94 @@
+"use client"
+
+import { useState } from "react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  LayoutDashboard,
+  Terminal,
+  GitBranch,
+  Activity,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Github,
+} from "lucide-react"
+
+const navigation = [
+  { name: "Dashboard", href: "dashboard", icon: LayoutDashboard },
+  { name: "Commands", href: "commands", icon: Terminal },
+  { name: "Deployments", href: "deployments", icon: GitBranch },
+  { name: "GitHub", href: "github", icon: Github },
+  { name: "Monitoring", href: "monitoring", icon: Activity },
+  { name: "Settings", href: "settings", icon: Settings },
+]
+
+interface SidebarProps {
+  activeView: string
+  setActiveView: (view: string) => void
+}
+
+export function Sidebar({ activeView, setActiveView }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(false)
+
+  return (
+    <div
+      className={cn(
+        "bg-sidebar border-r border-sidebar-border transition-all duration-300",
+        collapsed ? "w-16" : "w-64",
+      )}
+    >
+      <div className="flex h-full flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
+          {!collapsed && (
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-sidebar-accent rounded-lg flex items-center justify-center">
+                <Terminal className="w-4 h-4 text-sidebar-accent-foreground" />
+              </div>
+              <span className="font-semibold text-sidebar-foreground">K8s Platform</span>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCollapsed(!collapsed)}
+            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </Button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2">
+          {navigation.map((item) => {
+            const Icon = item.icon
+            const isActive = activeView === item.href
+            return (
+              <Button
+                key={item.name}
+                variant={isActive ? "default" : "ghost"}
+                className={cn(
+                  "w-full justify-start",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground",
+                  collapsed && "px-2",
+                )}
+                onClick={() => setActiveView(item.href)}
+              >
+                <Icon className={cn("w-4 h-4", !collapsed && "mr-3")} />
+                {!collapsed && item.name}
+              </Button>
+            )
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-sidebar-border">
+          {!collapsed && <div className="text-xs text-sidebar-foreground/60">NCP K8s Automation Platform</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
