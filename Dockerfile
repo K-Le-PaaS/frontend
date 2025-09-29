@@ -1,43 +1,47 @@
-# Multi-stage build for React frontend
-FROM node:20-alpine AS builder
+# Multi-stage Dockerfile for Next.js (App Router) production build
+# Uses Next.js standalone output to keep the runtime image small
 
+ARG NODE_VERSION=20-alpine
+
+# 1) Base with common settings
+FROM node:${NODE_VERSION} AS base
+ENV PNPM_HOME=/root/.local/share/pnpm \
+    NODE_ENV=production
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# 2) Dependencies (leverage layer caching)
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
-# Install all dependencies (including dev) for build tools like TypeScript/Vite
-RUN npm ci
-
-# Copy source code
+# 3) Build
+FROM base AS build
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build the application
+# Accept build-time overrides for public envs (optional)
+ARG NEXT_PUBLIC_API_BASE
+ENV NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE}
 RUN npm run build
 
-# Production stage - using specific version for better security
-FROM nginx:1.29-alpine
+# 4) Production runner with standalone output
+FROM node:${NODE_VERSION} AS runner
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+WORKDIR /app
 
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy only the standalone server and assets
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Security hardening
-RUN apk add --no-cache dumb-init && \
-    chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d && \
-    chmod -R 755 /usr/share/nginx/html && \
-    chmod 644 /etc/nginx/nginx.conf
-
-# Switch to non-root user
-USER nginx
+# Healthcheck (basic)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT).then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))" || exit 1
 
 EXPOSE 3000
+CMD ["node", "server.js"]
 
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["nginx", "-g", "daemon off;"]
+
