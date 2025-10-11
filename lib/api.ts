@@ -7,18 +7,20 @@ class ApiClient {
     this.baseURL = baseURL
   }
 
-  private async request<T = any>(
+  private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
-    console.log('API Request:', url) // 디버깅용 로그 추가
     
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
         ...options.headers,
       },
+      cache: 'no-store',
       ...options,
     }
 
@@ -32,19 +34,13 @@ class ApiClient {
     }
 
     try {
-      console.log('Making API request to:', url, 'with config:', config)
       const response = await fetch(url, config)
-      console.log('API response status:', response.status)
       
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('API error response:', errorText)
-        throw new Error(`HTTP ${response.status}: ${errorText}`)
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const result = await response.json()
-      console.log('API response data:', result)
-      return result
+      return await response.json()
     } catch (error) {
       console.error('API request failed:', error)
       throw error
@@ -52,6 +48,12 @@ class ApiClient {
   }
 
   // Auth endpoints
+  async loginWithOAuth2(provider: 'google' | 'github', code: string, redirectUri: string) {
+    return this.request('/api/v1/auth/oauth2/login', {
+      method: 'POST',
+      body: JSON.stringify({ provider, code, redirect_uri: redirectUri }),
+    })
+  }
   async login(credentials: { email: string; password: string }) {
     return this.request('/api/auth/login', {
       method: 'POST',
@@ -72,9 +74,13 @@ class ApiClient {
     })
   }
 
+  async getCurrentUser() {
+    return this.request('/api/auth/me')
+  }
+
   // Dashboard endpoints
   async getDashboardData() {
-    return this.request<any>('/api/v1/dashboard/overview')
+    return this.request('/api/v1/dashboard/overview')
   }
 
   async getDeployments() {
@@ -83,26 +89,6 @@ class ApiClient {
 
   async getClusters() {
     return this.request('/api/clusters')
-  }
-
-  // Commands endpoints
-  async executeCommand(command: string) {
-    return this.request('/api/v1/commands/execute', {
-      method: 'POST',
-      body: JSON.stringify({ text: command }),
-    })
-  }
-
-  async getCommandHistory(limit: number = 50, offset: number = 0) {
-    return this.request(`/api/v1/commands/history?limit=${limit}&offset=${offset}`)
-  }
-
-  async getCommandDetail(commandId: number) {
-    return this.request(`/api/v1/commands/history/${commandId}`)
-  }
-
-  async getCommandsStatus() {
-    return this.request('/api/v1/commands/status')
   }
 
   // MCP endpoints
@@ -117,95 +103,40 @@ class ApiClient {
     return this.request('/mcp/status')
   }
 
-  // GitHub endpoints
-  async getGitHubInstallations() {
-    return this.request<any>('/api/v1/github/app/installations')
-  }
-
-  async getGitHubInstallationToken(installationId: string) {
-    return this.request<any>(`/api/v1/github/app/installations/${installationId}/token`, {
-      method: 'POST',
-    })
-  }
-
-  async getGitHubRepositories() {
-    return this.request<any>('/api/v1/github/repositories')
-  }
-
-  // Removed no-arg PR/Pipeline getters to avoid duplicate implementations;
-  // use userId-specific versions defined below.
-
-  async installGitHubWorkflow(data: {
-    owner: string
-    repo: string
-    installation_id: string
-    branch?: string
-    path?: string
-    yaml_content?: string
-    commit_message?: string
-    author_name?: string
-    author_email?: string
-  }) {
-    return this.request<any>('/api/v1/github/workflows/install', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async getGitHubAppInstallUrl() {
-    return this.request<any>('/api/v1/github/app/install-url')
-  }
-
-  async checkRepositoryInstallation(owner: string, repo: string) {
-    return this.request<any>(`/api/v1/github/repositories/check-installation?owner=${owner}&repo=${repo}`, {
-      method: 'POST',
-    })
-  }
-
-  async connectRepository(owner: string, repo: string, userId: string = "default", userEmail: string = "user@example.com") {
-    return this.request<any>(`/api/v1/github/repositories/connect?owner=${owner}&repo=${repo}&user_id=${userId}&user_email=${userEmail}`, {
-      method: 'POST',
-    })
-  }
-
-  async getConnectedRepositories(userId: string = "default") {
-    return this.request<any>(`/api/v1/github/repositories/connected?user_id=${userId}`)
-  }
-
-  async getGitHubPullRequests(userId: string = "default") {
-    return this.request<any>(`/api/v1/github/pull-requests?user_id=${userId}`)
-  }
-
-  async getGitHubPipelines(userId: string = "default") {
-    return this.request<any>(`/api/v1/github/pipelines?user_id=${userId}`)
-  }
-
-  // OAuth2 로그인
+  // OAuth2 endpoints
   async getOAuth2Url(provider: 'google' | 'github') {
-    // 기존에 사용한 리디렉션 URI 사용
-    const redirectUri = 'http://localhost:3000/auth/callback'
-    return this.request<any>(`/api/v1/auth/oauth2/url/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`)
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000')
+    // Frontend callback route
+    const redirectUri = `${origin}${basePath}/oauth2-callback`
+    const endpoint = `/api/v1/auth/oauth2/url/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`
+    return this.request(endpoint)
   }
 
-  async loginWithOAuth2(provider: 'google' | 'github', code: string, redirectUri: string) {
-    return this.request<any>('/api/v1/auth/oauth2/login', {
-      method: 'POST',
-      body: JSON.stringify({
-        provider,
-        code,
-        redirect_uri: redirectUri
-      })
-    })
-  }
-
-  // JWT 토큰 검증
   async verifyToken() {
-    return this.request<any>('/api/v1/auth/verify')
+    // 간단한 ping 엔드포인트가 없으므로 사용자 정보 조회를 토큰 검증으로 사용
+    return this.request('/api/v1/auth/me')
   }
 
-  // 현재 사용자 정보 조회
-  async getCurrentUser() {
-    return this.request<any>('/api/v1/auth/me')
+  // Project integrations
+  async getProjectIntegrations() {
+    const ts = Date.now()
+    return this.request(`/api/v1/projects/integrations?t=${ts}`)
+  }
+
+  // Command console (guarded: avoid runtime 'is not a function')
+  async getCommandHistory(limit: number = 50, offset: number = 0) {
+    const ts = Date.now()
+    // Backend route may vary; keep stable default and allow proxy rewrite
+    return this.request(`/api/v1/commands/history?limit=${limit}&offset=${offset}&t=${ts}`)
+  }
+
+  async runCommand(payload: { text: string; context?: any }) {
+    // Backend expects { text: string, ... }
+    return this.request('/api/v1/commands/execute', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
   }
 }
 

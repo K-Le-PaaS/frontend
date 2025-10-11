@@ -4,6 +4,13 @@ const nextConfig = {
   experimental: { optimizeCss: false },
   basePath: '/console',
   assetPrefix: '/console',
+  images: {
+    domains: ['lh3.googleusercontent.com', 'avatars.githubusercontent.com'],
+    formats: ['image/avif', 'image/webp'],
+  },
+  env: {
+    NEXT_PUBLIC_BASE_PATH: '/console',
+  },
   async rewrites() {
     return [
       {
