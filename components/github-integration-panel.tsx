@@ -266,11 +266,55 @@ export function GitHubIntegrationPanel() {
     }
   }
 
-  const handleConnectRepo = () => {
-    if (newRepoUrl.trim()) {
-      // Handle repository connection logic
+  const handleInstallGitHubApp = () => {
+    const githubAppInstallUrl = "https://github.com/apps/klepaas/installations/new"
+    window.open(githubAppInstallUrl, '_blank')
+  }
+
+  const handleConnectRepo = async () => {
+    if (!newRepoUrl.trim()) {
+      setError("Please enter a repository URL")
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Extract repository name from URL
+      const repoName = newRepoUrl.split('/').pop()?.replace('.git', '') || 'unknown'
+      const projectId = `project-${Date.now()}` // Generate a unique project ID
+      
       console.log("Connecting repository:", newRepoUrl)
+      
+      // Call the API to connect the repository
+      console.log("API 호출 시작:", { newRepoUrl, projectId, repoName })
+      const result = await apiClient.connectRepository(newRepoUrl, projectId, repoName)
+      
+      console.log("Repository connection result:", result)
+      
+      // Refresh the integrations list
+      const data = await apiClient.getProjectIntegrations()
+      const mapped: Repository[] = (Array.isArray(data) ? data : []).map((r: any, idx: number) => ({
+        id: String(r.id ?? idx),
+        name: r.repo ?? r.name ?? "",
+        fullName: r.github_full_name ?? `${r.owner ?? r.github_owner}/${r.repo ?? r.github_repo}`,
+        connected: true,
+        lastSync: r.updated_at ? new Date(r.updated_at) : new Date(),
+        branch: r.branch ?? "main",
+        status: (r.auto_deploy_enabled ? "healthy" : "warning") as Repository["status"],
+        autoDeployEnabled: !!r.auto_deploy_enabled,
+        webhookConfigured: Boolean(r.github_webhook_secret),
+      }))
+      setRepos(mapped)
       setNewRepoUrl("")
+      
+    } catch (error: any) {
+      console.error("Failed to connect repository:", error)
+      
+      setError(error?.message || "Failed to connect repository")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -345,17 +389,45 @@ export function GitHubIntegrationPanel() {
               <CardDescription>Add a GitHub repository to enable automated deployments</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="https://github.com/username/repository"
-                  value={newRepoUrl}
-                  onChange={(e) => setNewRepoUrl(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={handleConnectRepo}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Connect
-                </Button>
+              <div className="space-y-4">
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="https://github.com/username/repository"
+                    value={newRepoUrl}
+                    onChange={(e) => setNewRepoUrl(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleConnectRepo} disabled={loading}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    {loading ? "Connecting..." : "Connect"}
+                  </Button>
+                </div>
+                
+                {error && error.includes("GitHub App") && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-blue-900">GitHub App 설치 필요</h4>
+                        <p className="text-sm text-blue-700">
+                          레포지토리를 연동하려면 먼저 GitHub App을 설치해야 합니다.
+                        </p>
+                      </div>
+                      <Button 
+                        onClick={handleInstallGitHubApp}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Install GitHub App
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {error && !error.includes("GitHub App") && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

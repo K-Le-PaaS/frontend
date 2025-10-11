@@ -124,6 +124,17 @@ class ApiClient {
     return this.request(`/api/v1/projects/integrations?t=${ts}`)
   }
 
+  async connectRepository(repoUrl: string, projectId: string, repoName: string) {
+    return this.request('/api/v1/projects/github/connect', {
+      method: 'POST',
+      body: JSON.stringify({
+        repo_url: repoUrl,
+        project_id: projectId,
+        repo_name: repoName,
+      }),
+    })
+  }
+
   // Command console (guarded: avoid runtime 'is not a function')
   async getCommandHistory(limit: number = 50, offset: number = 0) {
     const ts = Date.now()
