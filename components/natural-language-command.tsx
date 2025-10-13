@@ -63,7 +63,7 @@ export function NaturalLanguageCommand() {
 
     try {
       // Execute command via API
-      const response = await apiClient.executeCommand(command.trim())
+      const response = await apiClient.runCommand({ text: command.trim() })
       
       // Reload history to get the latest command
       await loadCommandHistory()

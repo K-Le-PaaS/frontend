@@ -20,7 +20,9 @@ function CallbackInner() {
       if (code && provider) {
         try {
           // 백엔드 API를 호출하여 토큰 교환 및 사용자 정보 가져오기
-          const redirectUri = 'http://localhost:3000/auth/callback'
+          const origin = window.location.origin
+          const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+          const redirectUri = `${origin}${basePath}/oauth2-callback`
           type OAuthResponse = { success: boolean; user?: any; access_token?: string; message?: string }
           const response = await apiClient.loginWithOAuth2(
             provider as 'google' | 'github',

@@ -10,7 +10,8 @@ function CallbackInner() {
     const code = searchParams.get('code')
     const error = searchParams.get('error')
     const state = searchParams.get('state')
-    const provider = state?.split('_')[0] // state에서 provider 추출
+    // state는 'provider=google' 형태로 전달됨 → 'google'만 추출
+    const provider = state && state.includes('provider=') ? (state.split('provider=')[1] as string) : null
 
     if (error) {
       // 에러가 있는 경우
@@ -30,7 +31,9 @@ function CallbackInner() {
 
   const handleOAuth2Callback = async (code: string, provider: 'google' | 'github') => {
     try {
-                  const redirectUri = 'http://localhost:3000/auth/callback'
+                  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+                  const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000')
+                  const redirectUri = `${origin}${basePath}/oauth2-callback`
       
       // 백엔드로 인증 코드 전송하여 사용자 정보 받기
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/auth/oauth2/login`, {
@@ -55,7 +58,8 @@ function CallbackInner() {
         // 성공적으로 로그인된 경우 부모 창으로 사용자 정보 전달
         window.opener?.postMessage({
           type: 'OAUTH2_SUCCESS',
-          user: data.user
+          user: data.user,
+          accessToken: data.access_token
         }, window.location.origin)
       } else {
         throw new Error(data.message || '로그인 실패')

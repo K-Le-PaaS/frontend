@@ -29,7 +29,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       
       // 새 창에서 OAuth2 인증 페이지 열기
       const popup = window.open(authUrl, 'oauth2', 'width=500,height=600,scrollbars=yes,resizable=yes')
-      
+      let finished = false
+
       // 팝업에서 메시지 수신 대기
       const messageListener = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return
@@ -38,9 +39,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           const { user, accessToken } = event.data
           login(user, accessToken)
           onClose()
+          finished = true
           window.removeEventListener('message', messageListener)
         } else if (event.data.type === 'OAUTH2_ERROR') {
           console.error('OAuth2 로그인 실패:', event.data.error)
+          finished = true
           window.removeEventListener('message', messageListener)
         }
       }
@@ -50,16 +53,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       // 팝업이 닫혔는지 확인
                   const checkClosed = setInterval(() => {
                     try {
-                      if (popup?.closed) {
+                      if (finished || popup?.closed) {
                         clearInterval(checkClosed)
                         window.removeEventListener('message', messageListener)
                         setIsLoading(false)
                       }
                     } catch (error) {
                       // Cross-Origin-Opener-Policy로 인한 오류 무시
-                      console.warn('Cannot check popup status:', error)
+                      // 콘솔 스팸을 줄이기 위해 로그 생략
                     }
-                  }, 1000)
+                  }, 500)
       
     } catch (error) {
       console.error('Google 로그인 실패:', error)
@@ -76,7 +79,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       
       // 새 창에서 OAuth2 인증 페이지 열기
       const popup = window.open(authUrl, 'oauth2', 'width=500,height=600,scrollbars=yes,resizable=yes')
-      
+      let finished = false
+
       // 팝업에서 메시지 수신 대기
       const messageListener = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return
@@ -85,9 +89,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           const { user, accessToken } = event.data
           login(user, accessToken)
           onClose()
+          finished = true
           window.removeEventListener('message', messageListener)
         } else if (event.data.type === 'OAUTH2_ERROR') {
           console.error('OAuth2 로그인 실패:', event.data.error)
+          finished = true
           window.removeEventListener('message', messageListener)
         }
       }
@@ -97,16 +103,15 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       // 팝업이 닫혔는지 확인
                   const checkClosed = setInterval(() => {
                     try {
-                      if (popup?.closed) {
+                      if (finished || popup?.closed) {
                         clearInterval(checkClosed)
                         window.removeEventListener('message', messageListener)
                         setIsLoading(false)
                       }
                     } catch (error) {
                       // Cross-Origin-Opener-Policy로 인한 오류 무시
-                      console.warn('Cannot check popup status:', error)
                     }
-                  }, 1000)
+                  }, 500)
       
     } catch (error) {
       console.error('GitHub 로그인 실패:', error)
