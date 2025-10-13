@@ -34,15 +34,20 @@ class ApiClient {
     }
 
     try {
+      console.log('Making API request to:', url)
       const response = await fetch(url, config)
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text()
+        console.error(`HTTP error! status: ${response.status}, response:`, errorText)
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
       }
 
       return await response.json()
     } catch (error) {
       console.error('API request failed:', error)
+      console.error('Request URL:', url)
+      console.error('Request config:', config)
       throw error
     }
   }
@@ -115,7 +120,15 @@ class ApiClient {
 
   async verifyToken() {
     // 간단한 ping 엔드포인트가 없으므로 사용자 정보 조회를 토큰 검증으로 사용
-    return this.request('/api/v1/auth/me')
+    try {
+      return await this.request('/api/v1/auth/me')
+    } catch (error) {
+      console.error('Token verification failed:', error)
+      // 토큰이 유효하지 않으면 로컬 스토리지에서 제거
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user')
+      throw error
+    }
   }
 
   // Project integrations
@@ -133,6 +146,74 @@ class ApiClient {
         repo_name: repoName,
       }),
     })
+  }
+
+  async getPullRequests(repository?: string) {
+    const ts = Date.now()
+    const params = new URLSearchParams({ t: ts.toString() })
+    if (repository && repository !== "all") {
+      params.append("repository", repository)
+    }
+    return this.request(`/api/v1/github/pull-requests?${params.toString()}`)
+  }
+
+  async getPipelines(repository?: string) {
+    const ts = Date.now()
+    const params = new URLSearchParams({ t: ts.toString() })
+    if (repository && repository !== "all") {
+      params.append("repository", repository)
+    }
+    return this.request(`/api/v1/github/pipelines?${params.toString()}`)
+  }
+
+  async updateWebhookConfig(integrationId: number, enabled: boolean) {
+    return this.request(`/api/v1/github/webhook/${integrationId}?enabled=${enabled}`, {
+      method: 'PUT',
+    })
+  }
+
+  async getWebhookStatus(integrationId: number) {
+    return this.request(`/api/v1/github/webhook/${integrationId}/status`)
+  }
+
+  // Deployment Histories endpoints
+  async getDeploymentHistories(repository?: string, status?: string, limit: number = 20, offset: number = 0) {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+      t: Date.now().toString(),
+    })
+    if (repository) params.append('repository', repository)
+    if (status) params.append('status', status)
+    
+    return this.request(`/api/v1/deployment-histories?${params.toString()}`)
+  }
+
+  async getDeploymentHistory(deploymentId: number) {
+    return this.request(`/api/v1/deployment-histories/${deploymentId}`)
+  }
+
+  async getRepositoryDeploymentHistories(owner: string, repo: string, status?: string, limit: number = 20, offset: number = 0) {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+    })
+    if (status) params.append('status', status)
+    
+    return this.request(`/api/v1/deployment-histories/repository/${owner}/${repo}?${params.toString()}`)
+  }
+
+  async getDeploymentStats(repository?: string, days: number = 30) {
+    const params = new URLSearchParams({
+      days: days.toString(),
+    })
+    if (repository) params.append('repository', repository)
+    
+    return this.request(`/api/v1/deployment-histories/stats/summary?${params.toString()}`)
+  }
+
+  async getWebSocketStatus() {
+    return this.request('/api/v1/deployment-histories/websocket/status')
   }
 
   // Command console (guarded: avoid runtime 'is not a function')

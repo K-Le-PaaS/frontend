@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { apiClient } from "@/lib/api"
+import { useGlobalWebSocket } from "@/hooks/use-global-websocket"
+import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
+import { RealtimeDeploymentMonitor } from "./realtime-deployment-monitor"
 import {
   Github,
   GitBranch,
@@ -21,7 +24,40 @@ import {
   Play,
   AlertTriangle,
   Zap,
+  RefreshCw,
 } from "lucide-react"
+
+const UI_TEXT = {
+  pullRequests: {
+    title: "Pull Requests",
+    description: "Review and manage pull requests",
+    viewPR: "View PR",
+    deployPreview: "Deploy Preview",
+    loading: "Loading pull requests...",
+    noPRs: "No pull requests found",
+    status: {
+      open: "Open",
+      merged: "Merged", 
+      closed: "Closed"
+    }
+  },
+  repositories: {
+    title: "Connected Repositories",
+    description: "Manage your GitHub repository integrations",
+    autoDeploy: "Auto Deploy",
+    webhooks: "Webhooks",
+    connection: "Connection",
+    configured: "Configured",
+    notSet: "Not Set",
+    connected: "Connected",
+    disconnected: "Disconnected",
+    viewOnGitHub: "View on GitHub",
+    configure: "Configure",
+    triggerDeploy: "Trigger Deploy",
+    active: "활성",
+    inactive: "비활성"
+  }
+}
 
 interface Repository {
   id: string
@@ -30,9 +66,10 @@ interface Repository {
   connected: boolean
   lastSync: Date
   branch: string
-  status: "healthy" | "warning" | "error"
+  status: "active" | "inactive" | "error"
   autoDeployEnabled: boolean
   webhookConfigured: boolean
+  htmlUrl?: string
 }
 
 interface PullRequest {
@@ -46,133 +83,283 @@ interface PullRequest {
   createdAt: Date
   ciStatus: "pending" | "success" | "failure"
   deploymentStatus: "pending" | "deployed" | "failed" | null
+  htmlUrl?: string
+  deploymentUrl?: string
+}
+
+interface DeploymentHistory {
+  id: number
+  user_id: string
+  repository: string
+  commit: {
+    sha: string
+    short_sha: string
+    message: string
+    author: string
+    url?: string
+  }
+  status: "running" | "success" | "failed"
+  stages: {
+    sourcecommit: {
+      status: "success" | "failed" | null
+      duration: number | null
+    }
+    sourcebuild: {
+      status: "success" | "failed" | null
+      duration: number | null
+    }
+    sourcedeploy: {
+      status: "success" | "failed" | null
+      duration: number | null
+    }
+  }
+  image: {
+    name: string | null
+    tag: string | null
+    url: string | null
+  }
+  cluster: {
+    id: string | null
+    name: string | null
+    namespace: string | null
+  }
+  timing: {
+    started_at: string
+    completed_at: string | null
+    total_duration: number | null
+  }
+  error: {
+    message: string | null
+    stage: string | null
+  } | null
+  auto_deploy_enabled: boolean
+  created_at: string
+  updated_at: string
 }
 
 interface Pipeline {
   id: string
   repository: string
   branch: string
-  commit: string
-  status: "running" | "success" | "failed" | "cancelled"
+  commit?: string
+  status: "running" | "success" | "failed" | "cancelled" | "completed" | "pending" | "unknown"
   startedAt: Date
   duration?: number
-  stages: {
-    name: string
-    status: "pending" | "running" | "success" | "failed" | "skipped"
-  }[]
+  stages?: {
+    sourcecommit: {
+      status: "success" | "failed" | null
+      duration: number | null
+    }
+    sourcebuild: {
+      status: "success" | "failed" | null
+      duration: number | null
+    }
+    sourcedeploy: {
+      status: "success" | "failed" | null
+      duration: number | null
+    }
+  }
+  timing?: {
+    started_at: string
+    completed_at: string | null
+    total_duration: number | null
+  }
+  error?: {
+    message: string
+    stage: string
+  }
+  auto_deploy_enabled?: boolean
+  workflowName?: string
+  actor?: string
+  runNumber?: number
+  event?: string
+  conclusion?: string
+  htmlUrl?: string
+  logsUrl?: string
+  updatedAt?: Date
+  headCommit?: {
+    id: string
+    message: string
+    author: string
+  }
 }
-
-// Replace mocks with live data; keep types for UI rendering fallback
-const mockRepositories: Repository[] = [
-  {
-    id: "1",
-    name: "frontend-app",
-    fullName: "company/frontend-app",
-    connected: true,
-    lastSync: new Date(Date.now() - 300000),
-    branch: "main",
-    status: "healthy",
-    autoDeployEnabled: true,
-    webhookConfigured: true,
-  },
-  {
-    id: "2",
-    name: "api-service",
-    fullName: "company/api-service",
-    connected: true,
-    lastSync: new Date(Date.now() - 600000),
-    branch: "main",
-    status: "warning",
-    autoDeployEnabled: false,
-    webhookConfigured: true,
-  },
-  {
-    id: "3",
-    name: "database-scripts",
-    fullName: "company/database-scripts",
-    connected: false,
-    lastSync: new Date(Date.now() - 86400000),
-    branch: "main",
-    status: "error",
-    autoDeployEnabled: false,
-    webhookConfigured: false,
-  },
-]
-
-const mockPullRequests: PullRequest[] = [
-  {
-    id: "1",
-    number: 42,
-    title: "Add new authentication flow",
-    author: "john.doe",
-    status: "open",
-    branch: "feature/auth-flow",
-    targetBranch: "main",
-    createdAt: new Date(Date.now() - 3600000),
-    ciStatus: "success",
-    deploymentStatus: "pending",
-  },
-  {
-    id: "2",
-    number: 41,
-    title: "Fix memory leak in user service",
-    author: "jane.smith",
-    status: "merged",
-    branch: "bugfix/memory-leak",
-    targetBranch: "main",
-    createdAt: new Date(Date.now() - 7200000),
-    ciStatus: "success",
-    deploymentStatus: "deployed",
-  },
-  {
-    id: "3",
-    number: 40,
-    title: "Update API documentation",
-    author: "bob.wilson",
-    status: "open",
-    branch: "docs/api-update",
-    targetBranch: "main",
-    createdAt: new Date(Date.now() - 10800000),
-    ciStatus: "failure",
-    deploymentStatus: null,
-  },
-]
-
-const mockPipelines: Pipeline[] = [
-  {
-    id: "1",
-    repository: "frontend-app",
-    branch: "main",
-    commit: "abc123f",
-    status: "success",
-    startedAt: new Date(Date.now() - 900000),
-    duration: 420,
-    stages: [
-      { name: "Build", status: "success" },
-      { name: "Test", status: "success" },
-      { name: "Deploy", status: "success" },
-    ],
-  },
-  {
-    id: "2",
-    repository: "api-service",
-    branch: "feature/auth-flow",
-    commit: "def456g",
-    status: "running",
-    startedAt: new Date(Date.now() - 300000),
-    stages: [
-      { name: "Build", status: "success" },
-      { name: "Test", status: "running" },
-      { name: "Deploy", status: "pending" },
-    ],
-  },
-]
 
 export function GitHubIntegrationPanel() {
   const [newRepoUrl, setNewRepoUrl] = useState("")
   const [repos, setRepos] = useState<Repository[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // 사용자 인증 정보 가져오기
+  const { user } = useAuth()
+  console.log("GitHubIntegrationPanel: user object:", user)
+  console.log("GitHubIntegrationPanel: user.id:", user?.id)
+  console.log("GitHubIntegrationPanel: user.provider:", user?.provider)
+  
+  // 사용자 ID 매핑: 우선 provider_id(실제 고유 ID) → id → provider(최후수단)
+  const userId = (user as any)?.provider_id || user?.id || user?.provider
+  console.log("GitHubIntegrationPanel: Final userId for WebSocket:", userId)
+  
+  // 사용자 인증 상태 확인
+  if (!user) {
+    console.warn("User not authenticated, WebSocket connection will not be established")
+  }
+  
+  // WebSocket for real-time updates (진행 상황만, 자동 목록 새로고침 제외)
+  // 사용자 인증이 완료된 경우에만 WebSocket 연결
+  
+  const { isConnected, sendMessage } = useGlobalWebSocket({
+    userId: user ? userId : undefined, // 사용자 인증된 경우에만 WebSocket 연결
+    onMessage: (message) => {
+      console.log("GitHubIntegrationPanel received WebSocket message:", message)
+      console.log("Message type:", message.type)
+      
+      // 실시간 진행 상황 업데이트는 유지 (자동 목록 새로고침 제외)
+      // WebSocket 메시지는 개별 디플로이 모니터에서 자동으로 처리됨
+      // 별도의 전달 로직이 필요하지 않음 (GlobalWebSocketManager가 자동으로 모든 구독자에게 전달)
+      
+      // 자동 목록 새로고침 제거 - 수동 리프레시 버튼만 사용
+      // deployment_started, stage_progress 등의 메시지로 자동 새로고침하지 않음
+    }
+  })
+  
+  // 강제 새로고침 함수 (모든 리포지토리 확인)
+  const handleForceRefreshAll = useCallback(async () => {
+    if (!repos || repos.length === 0) return
+
+    console.log('Force refreshing all deployment histories')
+    
+    for (const repo of repos) {
+      try {
+        console.log('Refreshing for repo:', repo.fullName)
+        const data = await apiClient.getDeploymentHistories(
+          repo.fullName,
+          undefined, // 모든 상태의 배포 가져오기
+          20,
+          0
+        ) as any
+        
+        console.log(`Deployment data for ${repo.fullName}:`, data)
+        
+        if (data.deployments && data.deployments.length > 0) {
+          console.log(`Found ${data.deployments.length} deployments for ${repo.fullName}`)
+          // 첫 번째 리포지토리에서 배포를 찾았으면 해당 리포지토리로 설정
+          setSelectedDeploymentRepository(repo.fullName)
+          break
+        }
+      } catch (error) {
+        console.error(`Error refreshing ${repo.fullName}:`, error)
+      }
+    }
+  }, [repos])
+
+  // 폴링 기능 제거됨 - 수동 리프레시 버튼 사용
+
+  // Fetch deployment histories function
+  const handleRefreshDeploymentHistories = useCallback(async () => {
+    if (!repos || repos.length === 0) return
+
+    try {
+      setDeploymentLoading(true)
+      setDeploymentError(null)
+      
+      // selectedDeploymentRepository가 없으면 첫 번째 리포지토리 사용
+      const targetRepository = selectedDeploymentRepository || repos[0]?.fullName
+      console.log('Refreshing deployment histories for repository:', targetRepository)
+      console.log('selectedDeploymentRepository:', selectedDeploymentRepository)
+      console.log('repos:', repos)
+      
+      if (!targetRepository) {
+        console.log('No target repository available')
+        return
+      }
+      
+      const data = await apiClient.getDeploymentHistories(
+        targetRepository,
+        deploymentStatusFilter === "all" ? undefined : deploymentStatusFilter,
+        20,
+        0
+      ) as any
+      console.log('Deployment histories API response:', data)
+      
+      const mapped: DeploymentHistory[] = (data.deployments || []).map((deployment: any) => ({
+        id: deployment.id,
+        repository: deployment.repository,
+        status: deployment.status,
+        stages: deployment.stages || {
+          sourcecommit: { status: null, duration: null },
+          sourcebuild: { status: null, duration: null },
+          sourcedeploy: { status: null, duration: null }
+        },
+        timing: deployment.timing || {
+          started_at: deployment.timing?.started_at || new Date().toISOString(),
+          completed_at: deployment.timing?.completed_at || null,
+          total_duration: deployment.timing?.total_duration || null
+        },
+        error: deployment.error,
+        auto_deploy_enabled: deployment.auto_deploy_enabled || false,
+        commit: deployment.commit || {
+          sha: "",
+          short_sha: "",
+          message: "",
+          author: "",
+          url: ""
+        },
+        image: deployment.image || {
+          name: "",
+          tag: "",
+          url: ""
+        },
+        cluster: deployment.cluster || {
+          id: "",
+          name: "",
+          namespace: ""
+        }
+      }))
+      
+      console.log('Mapped deployment histories:', mapped)
+      setDeploymentHistories(mapped)
+    } catch (error: any) {
+      console.error('Failed to refresh deployment histories:', error)
+      setDeploymentError(error?.message || "Failed to load deployment histories")
+    } finally {
+      setDeploymentLoading(false)
+    }
+  }, [repos])
+  
+  // Pull Requests state
+  const [pullRequests, setPullRequests] = useState<PullRequest[]>([])
+  const [prLoading, setPrLoading] = useState(false)
+  const [prError, setPrError] = useState<string | null>(null)
+  const [selectedRepository, setSelectedRepository] = useState<string | undefined>(undefined)
+  const [prStatusFilter, setPrStatusFilter] = useState<"all" | "open" | "closed" | "merged">("all")
+  
+  // Deployment Histories state
+  const [deploymentHistories, setDeploymentHistories] = useState<DeploymentHistory[]>([])
+  const [deploymentLoading, setDeploymentLoading] = useState(false)
+  const [deploymentError, setDeploymentError] = useState<string | null>(null)
+  const [selectedDeploymentRepository, setSelectedDeploymentRepository] = useState<string | undefined>(undefined)
+
+  const [deploymentStatusFilter, setDeploymentStatusFilter] = useState<"all" | "running" | "success" | "failed">("all")
+  const [refreshing, setRefreshing] = useState(false)
+  
+  // Legacy Pipelines state (for backward compatibility)
+  const [pipelines, setPipelines] = useState<Pipeline[]>([])
+  const [pipelineLoading, setPipelineLoading] = useState(false)
+  const [pipelineError, setPipelineError] = useState<string | null>(null)
+  const [selectedPipelineRepository, setSelectedPipelineRepository] = useState<string | undefined>(undefined)
+
+  // Filtered PRs based on status filter
+  const filteredPullRequests = pullRequests.filter(pr => {
+    if (prStatusFilter === "all") return true
+    return pr.status === prStatusFilter
+  })
+
+  // Filtered deployment histories based on status filter
+  const filteredDeploymentHistories = deploymentHistories.filter(deployment => {
+    if (deploymentStatusFilter === "all") return true
+    return deployment.status === deploymentStatusFilter
+  })
 
   useEffect(() => {
     let mounted = true
@@ -190,7 +377,7 @@ export function GitHubIntegrationPanel() {
           connected: true,
           lastSync: r.updated_at ? new Date(r.updated_at) : new Date(),
           branch: r.branch ?? "main",
-          status: (r.auto_deploy_enabled ? "healthy" : "warning") as Repository["status"],
+          status: (r.auto_deploy_enabled ? "active" : "inactive") as Repository["status"],
           autoDeployEnabled: !!r.auto_deploy_enabled,
           webhookConfigured: Boolean(r.github_webhook_secret),
         }))
@@ -209,12 +396,361 @@ export function GitHubIntegrationPanel() {
     }
   }, [])
 
+  // Pull Requests useEffect
+  useEffect(() => {
+    if (!repos || repos.length === 0) return // Don't fetch if no repos loaded yet
+
+    const fetchPullRequests = async () => {
+      try {
+        setPrLoading(true)
+        setPrError(null)
+        console.log('Fetching pull requests for repository:', selectedRepository)
+        const data = await apiClient.getPullRequests(selectedRepository)
+        console.log('Pull requests API response:', data)
+        console.log('Raw PR data structure:', JSON.stringify(data, null, 2))
+        
+        // 백엔드 응답 구조에 맞게 처리
+        let allPullRequests: any[] = []
+        const responseData = data as any
+        if (responseData && responseData.repositories && Array.isArray(responseData.repositories)) {
+          for (const repo of responseData.repositories) {
+            if (repo.pullRequests && Array.isArray(repo.pullRequests)) {
+              allPullRequests = allPullRequests.concat(repo.pullRequests)
+            }
+          }
+        }
+        
+        const mapped: PullRequest[] = allPullRequests.map((pr: any) => ({
+          id: String(pr.id),
+          number: pr.number,
+          title: pr.title,
+          author: pr.user?.login || pr.author,
+          status: pr.status === "open" ? "open" : pr.merged_at ? "merged" : "closed",
+          branch: pr.head?.ref || pr.branch || "main",
+          targetBranch: pr.base?.ref || "main",
+          createdAt: pr.created_at ? new Date(pr.created_at) : new Date(),
+          ciStatus: pr.ciStatus || "pending",
+          deploymentStatus: null, // TODO: Get actual deployment status
+          htmlUrl: pr.htmlUrl,  // 🔧 수정: pr.html_url → pr.htmlUrl
+          deploymentUrl: pr.deploymentUrl  // 🔧 수정: pr.deployment_url → pr.deploymentUrl
+        }))
+        setPullRequests(mapped)
+      } catch (error: any) {
+        console.error('Failed to fetch pull requests:', error)
+        setPrError(error?.message || "Failed to load pull requests")
+      } finally {
+        setPrLoading(false)
+      }
+    }
+
+    const timeoutId = setTimeout(fetchPullRequests, 500) // Debounce
+    return () => clearTimeout(timeoutId)
+  }, [selectedRepository]) // 🔧 최적화: repos 의존성 제거
+
+  // Deployment Histories useEffect
+  useEffect(() => {
+    if (!repos || repos.length === 0) return
+
+    const fetchDeploymentHistories = async () => {
+      try {
+        setDeploymentLoading(true)
+        setDeploymentError(null)
+        console.log('Fetching deployment histories for repository:', selectedDeploymentRepository)
+        
+        const data = await apiClient.getDeploymentHistories(
+          selectedDeploymentRepository,
+          deploymentStatusFilter === "all" ? undefined : deploymentStatusFilter,
+          20,
+          0
+        ) as any
+        console.log('Deployment histories API response:', data)
+        
+        const mapped: DeploymentHistory[] = (data.deployments || []).map((deployment: any) => ({
+          id: deployment.id,
+          user_id: deployment.user_id,
+          repository: deployment.repository,
+          commit: {
+            sha: deployment.github_commit_sha || "",
+            short_sha: deployment.github_commit_sha?.substring(0, 7) || "",
+            message: deployment.github_commit_message || "",
+            author: deployment.github_commit_author || "",
+            url: deployment.github_commit_url
+          },
+          status: deployment.status,
+          stages: {
+            sourcecommit: {
+              status: deployment.sourcecommit_status,
+              duration: deployment.sourcecommit_duration
+            },
+            sourcebuild: {
+              status: deployment.sourcebuild_status,
+              duration: deployment.sourcebuild_duration
+            },
+            sourcedeploy: {
+              status: deployment.sourcedeploy_status,
+              duration: deployment.sourcedeploy_duration
+            }
+          },
+          image: {
+            name: deployment.image_name,
+            tag: deployment.image_tag,
+            url: deployment.image_name && deployment.image_tag 
+              ? `${deployment.image_name}:${deployment.image_tag}` 
+              : null
+          },
+          cluster: {
+            id: deployment.cluster_id,
+            name: deployment.cluster_name,
+            namespace: deployment.namespace
+          },
+          timing: {
+            started_at: deployment.started_at,
+            completed_at: deployment.completed_at,
+            total_duration: deployment.total_duration
+          },
+          error: deployment.error_message ? {
+            message: deployment.error_message,
+            stage: deployment.error_stage
+          } : null,
+          auto_deploy_enabled: deployment.auto_deploy_enabled,
+          created_at: deployment.created_at,
+          updated_at: deployment.updated_at
+        }))
+        
+        setDeploymentHistories(mapped)
+      } catch (e: any) {
+        console.error('Failed to fetch deployment histories:', e)
+        setDeploymentError(e?.message || "Failed to load deployment histories")
+        setDeploymentHistories([])
+      } finally {
+        setDeploymentLoading(false)
+      }
+    }
+
+    const timeoutId = setTimeout(fetchDeploymentHistories, 500)
+    return () => clearTimeout(timeoutId)
+  }, [selectedDeploymentRepository, deploymentStatusFilter])
+
+  // Pipelines useEffect
+  useEffect(() => {
+    if (!repos || repos.length === 0) return // Don't fetch if no repos loaded yet
+
+    const fetchPipelines = async () => {
+      try {
+        setPipelineLoading(true)
+        setPipelineError(null)
+        console.log('Fetching pipelines for repository:', selectedPipelineRepository)
+        const data = await apiClient.getPipelines(selectedPipelineRepository)
+        console.log('Pipelines API response:', data)
+        
+        // 백엔드 응답 구조에 맞게 처리
+        let allPipelines: any[] = []
+        const responseData = data as any
+        console.log('Full API response:', responseData)
+        
+        // 새로운 배포 히스토리 API 응답 구조 처리
+        if (responseData && responseData.deployments && Array.isArray(responseData.deployments)) {
+          allPipelines = responseData.deployments
+        }
+        // 기존 repositories 구조도 지원 (하위 호환성)
+        else if (responseData && responseData.repositories && Array.isArray(responseData.repositories)) {
+          for (const repo of responseData.repositories) {
+            if (repo.pipelines && Array.isArray(repo.pipelines)) {
+              allPipelines = allPipelines.concat(repo.pipelines)
+            }
+          }
+        }
+        
+        const mapped: Pipeline[] = allPipelines.map((pipeline: any) => {
+          // 새로운 배포 히스토리 구조인지 확인
+          if (pipeline.repository && typeof pipeline.repository === 'string' && pipeline.repository.includes('/')) {
+            // 새로운 배포 히스토리 구조
+            console.log('DEBUG: Processing pipeline with status:', pipeline.status)
+            const mappedStatus = pipeline.status === "success" ? "completed" : 
+                      pipeline.status === "running" ? "running" :
+                      pipeline.status === "pending" ? "pending" : 
+                      pipeline.status === "failed" ? "failed" : 
+                      pipeline.status === "completed" ? "completed" : "unknown"
+            console.log('DEBUG: Mapped status:', mappedStatus)
+            return {
+              id: String(pipeline.id),
+              repository: pipeline.repository,
+              branch: pipeline.commit?.sha ? pipeline.commit.sha.substring(0, 7) : "main",
+              status: mappedStatus,
+              workflowName: "Deployment Pipeline",
+              actor: pipeline.commit?.author || "system",
+              runNumber: pipeline.id,
+              event: "deployment",
+              conclusion: pipeline.status,
+              htmlUrl: pipeline.commit?.url || "#",
+              logsUrl: pipeline.logs_url,
+              startedAt: pipeline.timing?.started_at ? new Date(pipeline.timing.started_at) : new Date(),
+              updatedAt: pipeline.updated_at ? new Date(pipeline.updated_at) : new Date(),
+              duration: pipeline.timing?.total_duration || 0,
+              headCommit: {
+                id: pipeline.commit?.sha || "",
+                message: pipeline.commit?.message || "",
+                author: pipeline.commit?.author || "unknown"
+              },
+              stages: pipeline.stages || {
+                sourcecommit: { status: null, duration: null },
+                sourcebuild: { status: null, duration: null },
+                sourcedeploy: { status: null, duration: null }
+              },
+              timing: pipeline.timing,
+              error: pipeline.error,
+              auto_deploy_enabled: pipeline.auto_deploy_enabled
+            }
+          } else {
+            // 기존 GitHub Actions 구조
+            return {
+              id: String(pipeline.id),
+              repository: typeof pipeline.repository === 'string' 
+                ? pipeline.repository 
+                : pipeline.repository?.name || "unknown",
+              branch: pipeline.head_branch || "main",
+              status: pipeline.status === "completed" ? "completed" : 
+                      pipeline.status === "in_progress" ? "running" :
+                      pipeline.status === "queued" ? "pending" : "unknown",
+              workflowName: pipeline.workflowName || "Unknown Workflow",
+              actor: pipeline.actor?.login || "unknown",
+              runNumber: pipeline.run_number || 0,
+              event: pipeline.event || "push",
+              conclusion: pipeline.conclusion,
+              htmlUrl: pipeline.html_url,
+              logsUrl: pipeline.logs_url,
+              startedAt: pipeline.started_at ? new Date(pipeline.started_at) : new Date(),
+              updatedAt: pipeline.updated_at ? new Date(pipeline.updated_at) : new Date(),
+              duration: pipeline.run_duration_ms ? Math.round(pipeline.run_duration_ms / 1000) : 0,
+              headCommit: {
+                id: pipeline.head_commit?.id || "",
+                message: pipeline.head_commit?.message || "",
+                author: pipeline.head_commit?.author?.name || "unknown"
+              }
+            }
+          }
+        })
+        console.log('Mapped pipelines:', mapped)
+        setPipelines(mapped)
+      } catch (error: any) {
+        console.error('Failed to fetch pipelines:', error)
+        setPipelineError(error?.message || "Failed to load pipelines")
+      } finally {
+        setPipelineLoading(false)
+      }
+    }
+
+    const timeoutId = setTimeout(fetchPipelines, 500) // Debounce
+    return () => clearTimeout(timeoutId)
+  }, [selectedPipelineRepository]) // 🔧 최적화: repos 의존성 제거
+
+  // 수동 새로고침: 파이프라인 목록도 강제 갱신
+  const handleRefreshPipelines = useCallback(async () => {
+    if (!repos || repos.length === 0) return
+    try {
+      setPipelineLoading(true)
+      setPipelineError(null)
+      const data = await apiClient.getPipelines(selectedPipelineRepository)
+      let allPipelines: any[] = []
+      const responseData = data as any
+      if (responseData && responseData.deployments && Array.isArray(responseData.deployments)) {
+        allPipelines = responseData.deployments
+      } else if (responseData && responseData.repositories && Array.isArray(responseData.repositories)) {
+        for (const repo of responseData.repositories) {
+          if (repo.pipelines && Array.isArray(repo.pipelines)) {
+            allPipelines = allPipelines.concat(repo.pipelines)
+          }
+        }
+      }
+
+      const mapped: Pipeline[] = allPipelines.map((pipeline: any) => {
+        if (pipeline.repository && typeof pipeline.repository === 'string' && pipeline.repository.includes('/')) {
+          const mappedStatus = pipeline.status === "success" ? "completed" :
+                pipeline.status === "running" ? "running" :
+                pipeline.status === "pending" ? "pending" :
+                pipeline.status === "failed" ? "failed" :
+                pipeline.status === "completed" ? "completed" : "unknown"
+          return {
+            id: String(pipeline.id),
+            repository: pipeline.repository,
+            branch: pipeline.commit?.sha ? pipeline.commit.sha.substring(0, 7) : "main",
+            status: mappedStatus,
+            workflowName: "Deployment Pipeline",
+            actor: pipeline.commit?.author || "system",
+            runNumber: pipeline.id,
+            event: "deployment",
+            conclusion: pipeline.status,
+            htmlUrl: pipeline.commit?.url || "#",
+            logsUrl: pipeline.logs_url,
+            startedAt: pipeline.timing?.started_at ? new Date(pipeline.timing.started_at) : new Date(),
+            updatedAt: pipeline.updated_at ? new Date(pipeline.updated_at) : new Date(),
+            duration: pipeline.timing?.total_duration || 0,
+            headCommit: {
+              id: pipeline.commit?.sha || "",
+              message: pipeline.commit?.message || "",
+              author: pipeline.commit?.author || "unknown"
+            },
+            stages: pipeline.stages || {
+              sourcecommit: { status: null, duration: null },
+              sourcebuild: { status: null, duration: null },
+              sourcedeploy: { status: null, duration: null }
+            },
+            timing: pipeline.timing,
+            error: pipeline.error,
+            auto_deploy_enabled: pipeline.auto_deploy_enabled
+          }
+        } else {
+          return {
+            id: String(pipeline.id),
+            repository: typeof pipeline.repository === 'string' ? pipeline.repository : (pipeline.repository?.name || "unknown"),
+            branch: pipeline.head_branch || "main",
+            status: pipeline.status === "completed" ? "completed" :
+                    pipeline.status === "in_progress" ? "running" :
+                    pipeline.status === "queued" ? "pending" : "unknown",
+            workflowName: pipeline.workflowName || "Unknown Workflow",
+            actor: pipeline.actor?.login || "unknown",
+            runNumber: pipeline.run_number || 0,
+            event: pipeline.event || "push",
+            conclusion: pipeline.conclusion,
+            htmlUrl: pipeline.html_url,
+            logsUrl: pipeline.logs_url,
+            startedAt: pipeline.started_at ? new Date(pipeline.started_at) : new Date(),
+            updatedAt: pipeline.updated_at ? new Date(pipeline.updated_at) : new Date(),
+            duration: pipeline.run_duration_ms ? Math.round(pipeline.run_duration_ms / 1000) : 0,
+            headCommit: {
+              id: pipeline.head_commit?.id || "",
+              message: pipeline.head_commit?.message || "",
+              author: pipeline.head_commit?.author?.name || "unknown"
+            }
+          }
+        }
+      })
+
+      setPipelines(mapped)
+    } catch (error: any) {
+      console.error('Failed to refresh pipelines:', error)
+      setPipelineError(error?.message || 'Failed to load pipelines')
+    } finally {
+      setPipelineLoading(false)
+    }
+  }, [repos, selectedPipelineRepository])
+
+  // Set default repository when repos are loaded
+  useEffect(() => {
+    if (repos && repos.length > 0 && !selectedRepository && !selectedPipelineRepository) {
+      const firstRepo = repos[0]
+      setSelectedRepository(firstRepo.fullName)
+      setSelectedPipelineRepository(firstRepo.fullName)
+    }
+  }, [repos, selectedRepository, selectedPipelineRepository])
+
+
   const getStatusIcon = (status: Repository["status"]) => {
     switch (status) {
-      case "healthy":
+      case "active":
         return <CheckCircle className="w-4 h-4 text-green-500" />
-      case "warning":
-        return <AlertTriangle className="w-4 h-4 text-yellow-500" />
+      case "inactive":
+        return <AlertTriangle className="w-4 h-4 text-gray-500" />
       case "error":
         return <XCircle className="w-4 h-4 text-red-500" />
     }
@@ -222,10 +758,10 @@ export function GitHubIntegrationPanel() {
 
   const getStatusBadge = (status: Repository["status"]) => {
     switch (status) {
-      case "healthy":
-        return <Badge className="bg-green-100 text-green-800">Healthy</Badge>
-      case "warning":
-        return <Badge className="bg-yellow-100 text-yellow-800">Warning</Badge>
+      case "active":
+        return <Badge className="bg-green-100 text-green-800">Active</Badge>
+      case "inactive":
+        return <Badge className="bg-gray-100 text-gray-600 border-gray-200">Inactive</Badge>
       case "error":
         return <Badge variant="destructive">Error</Badge>
     }
@@ -239,6 +775,8 @@ export function GitHubIntegrationPanel() {
         return <Badge className="bg-purple-100 text-purple-800">Merged</Badge>
       case "closed":
         return <Badge variant="secondary">Closed</Badge>
+      default:
+        return <Badge variant="outline">Unknown</Badge>
     }
   }
 
@@ -256,6 +794,7 @@ export function GitHubIntegrationPanel() {
   const getPipelineStatusIcon = (status: Pipeline["status"]) => {
     switch (status) {
       case "success":
+      case "completed":
         return <CheckCircle className="w-4 h-4 text-green-500" />
       case "failed":
         return <XCircle className="w-4 h-4 text-red-500" />
@@ -263,12 +802,11 @@ export function GitHubIntegrationPanel() {
         return <Play className="w-4 h-4 text-blue-500 animate-pulse" />
       case "cancelled":
         return <XCircle className="w-4 h-4 text-gray-500" />
+      case "pending":
+        return <Clock className="w-4 h-4 text-yellow-500 animate-pulse" />
+      case "unknown":
+        return <AlertTriangle className="w-4 h-4 text-gray-500" />
     }
-  }
-
-  const handleInstallGitHubApp = () => {
-    const githubAppInstallUrl = "https://github.com/apps/klepaas/installations/new"
-    window.open(githubAppInstallUrl, '_blank')
   }
 
   const handleConnectRepo = async () => {
@@ -302,9 +840,10 @@ export function GitHubIntegrationPanel() {
         connected: true,
         lastSync: r.updated_at ? new Date(r.updated_at) : new Date(),
         branch: r.branch ?? "main",
-        status: (r.auto_deploy_enabled ? "healthy" : "warning") as Repository["status"],
+        status: (r.auto_deploy_enabled ? "active" : "inactive") as Repository["status"],
         autoDeployEnabled: !!r.auto_deploy_enabled,
         webhookConfigured: Boolean(r.github_webhook_secret),
+        htmlUrl: `https://github.com/${r.github_full_name}`,
       }))
       setRepos(mapped)
       setNewRepoUrl("")
@@ -318,8 +857,111 @@ export function GitHubIntegrationPanel() {
     }
   }
 
+  const handleConfigure = async (repoId: string, type: 'general' | 'auto-deploy' | 'webhook' = 'general') => {
+    try {
+      console.log(`Configure requested for repository: ${repoId}, type: ${type}`)
+      // TODO: 리포지토리 설정 모달 또는 페이지로 이동
+      const configTypes = {
+        'general': '일반 설정',
+        'auto-deploy': '자동 배포 설정',
+        'webhook': '웹훅 설정'
+      }
+      alert(`${configTypes[type]} 기능은 곧 구현될 예정입니다.`)
+    } catch (error) {
+      console.error("Configure failed:", error)
+      alert("설정 페이지 로드에 실패했습니다.")
+    }
+  }
+
+  const handleWebhookToggle = async (repoId: string, enabled: boolean) => {
+    try {
+      console.log(`Auto Deploy toggle for repository ${repoId}: ${enabled}`)
+      console.log(`Sending API request to: /api/v1/github/webhook/${repoId}?enabled=${enabled}`)
+      
+      // 로컬 상태 먼저 업데이트 (즉시 UI 반영)
+      setRepos(prevRepos => 
+        prevRepos?.map(repo => 
+          repo.id === repoId 
+            ? { 
+                ...repo, 
+                webhookConfigured: enabled, 
+                autoDeployEnabled: enabled,
+                status: enabled ? "active" : "inactive"  // 🔧 수정: status도 즉시 업데이트
+              }
+            : repo
+        ) || null
+      )
+      
+      // 백엔드 API 호출 (웹훅 설정/해제)
+      try {
+        const response = await apiClient.updateWebhookConfig(parseInt(repoId), enabled) as any
+        
+        if (response.status === "success") {
+          console.log(`Auto Deploy ${enabled ? '활성화' : '비활성화'} 성공`)
+          // 🔧 최적화: API 성공 시 전체 리포지토리 목록 다시 로드 제거
+          // 로컬 상태가 이미 업데이트되었으므로 불필요한 네트워크 요청 방지
+        } else {
+          console.warn("API 응답이 성공이 아닙니다:", response)
+          // API 실패 시 로컬 상태 롤백
+          setRepos(prevRepos => 
+            prevRepos?.map(repo => 
+              repo.id === repoId 
+                ? { 
+                    ...repo, 
+                    webhookConfigured: !enabled, 
+                    autoDeployEnabled: !enabled,
+                    status: !enabled ? "active" : "inactive"
+                  }
+                : repo
+            ) || null
+          )
+        }
+      } catch (apiError: any) {
+        console.warn("API 호출 실패, 로컬 상태 롤백:", apiError)
+        // API 실패 시 로컬 상태 롤백
+        setRepos(prevRepos => 
+          prevRepos?.map(repo => 
+            repo.id === repoId 
+              ? { 
+                  ...repo, 
+                  webhookConfigured: !enabled, 
+                  autoDeployEnabled: !enabled,
+                  status: !enabled ? "active" : "inactive"
+                }
+              : repo
+          ) || null
+        )
+      }
+      
+    } catch (error: any) {
+      console.error("Auto Deploy toggle failed:", error)
+      // 에러가 발생해도 로컬 상태는 이미 업데이트됨
+    }
+  }
+
+  const handleTriggerDeploy = async (repoId: string) => {
+    try {
+      console.log(`Trigger Deploy requested for repository: ${repoId}`)
+      // TODO: 백엔드에 수동 배포 트리거 API 호출
+      // const response = await apiClient.triggerDeploy(repoId)
+      alert("수동 배포 트리거 기능은 곧 구현될 예정입니다.")
+    } catch (error) {
+      console.error("Trigger Deploy failed:", error)
+      alert("배포 트리거에 실패했습니다.")
+    }
+  }
+
+  const handleDeployPreview = (pr: PullRequest) => {
+    if (pr.deploymentUrl) {
+      window.open(pr.deploymentUrl, '_blank')
+    } else {
+      alert("Deploy preview is not available for this PR")
+    }
+  }
+
   return (
     <div className="space-y-6">
+
       {/* Integration Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -341,9 +983,9 @@ export function GitHubIntegrationPanel() {
             <GitPullRequest className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockPullRequests.filter((pr) => pr.status === "open").length}</div>
+            <div className="text-2xl font-bold">{pullRequests.filter((pr) => pr.status === "open").length}</div>
             <p className="text-xs text-muted-foreground">
-              {mockPullRequests.filter((pr) => pr.ciStatus === "success").length} ready to merge
+              {pullRequests.filter((pr) => pr.ciStatus === "success").length} ready to merge
             </p>
           </CardContent>
         </Card>
@@ -354,9 +996,9 @@ export function GitHubIntegrationPanel() {
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockPipelines.filter((p) => p.status === "running").length}</div>
+            <div className="text-2xl font-bold">{pipelines.filter((p) => p.status === "running").length}</div>
             <p className="text-xs text-muted-foreground">
-              {mockPipelines.filter((p) => p.status === "success").length} completed today
+              {pipelines.filter((p) => p.status === "completed").length} completed today
             </p>
           </CardContent>
         </Card>
@@ -389,45 +1031,17 @@ export function GitHubIntegrationPanel() {
               <CardDescription>Add a GitHub repository to enable automated deployments</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder="https://github.com/username/repository"
-                    value={newRepoUrl}
-                    onChange={(e) => setNewRepoUrl(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleConnectRepo} disabled={loading}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    {loading ? "Connecting..." : "Connect"}
-                  </Button>
-                </div>
-                
-                {error && error.includes("GitHub App") && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-blue-900">GitHub App 설치 필요</h4>
-                        <p className="text-sm text-blue-700">
-                          레포지토리를 연동하려면 먼저 GitHub App을 설치해야 합니다.
-                        </p>
-                      </div>
-                      <Button 
-                        onClick={handleInstallGitHubApp}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Install GitHub App
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                {error && !error.includes("GitHub App") && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                )}
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="https://github.com/username/repository"
+                  value={newRepoUrl}
+                  onChange={(e) => setNewRepoUrl(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={handleConnectRepo}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Connect
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -460,35 +1074,60 @@ export function GitHubIntegrationPanel() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Auto Deploy</span>
-                        <Switch checked={repo.autoDeployEnabled} />
+                    {/* Auto Deploy 섹션 (웹훅 통합) */}
+                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg mb-3">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Auto Deploy</span>
+                        <span className="text-xs text-gray-500">GitHub Push 시 자동 빌드/배포</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Webhooks</span>
-                        <Badge variant={repo.webhookConfigured ? "default" : "secondary"}>
-                          {repo.webhookConfigured ? "Configured" : "Not Set"}
+                      <div className="flex items-center space-x-2">
+                        <Badge 
+                          variant={repo.autoDeployEnabled ? "default" : "secondary"}
+                          className={repo.autoDeployEnabled 
+                            ? "bg-green-100 text-green-800 border-green-200" 
+                            : "bg-gray-100 text-gray-600 border-gray-200"
+                          }
+                        >
+                          {repo.autoDeployEnabled ? "활성" : "비활성"}
                         </Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Connection</span>
-                        <Badge variant={repo.connected ? "default" : "destructive"}>
-                          {repo.connected ? "Connected" : "Disconnected"}
-                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleConfigure(repo.id, 'auto-deploy')}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Settings className="w-3 h-3" />
+                        </Button>
+                        <Switch 
+                          checked={repo.autoDeployEnabled} 
+                          onCheckedChange={(checked) => handleWebhookToggle(repo.id, checked)}
+                        />
                       </div>
                     </div>
 
+                    {/* Connection 상태 */}
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg mb-3">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">Connection</span>
+                        <span className="text-xs text-gray-500">리포지토리 연결 상태</span>
+                      </div>
+                      <Badge variant={repo.connected ? "default" : "destructive"}>
+                        {repo.connected ? "Connected" : "Disconnected"}
+                      </Badge>
+                    </div>
+
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        View on GitHub
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={repo.htmlUrl || `https://github.com/${repo.fullName}`} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                          <ExternalLink className="w-4 h-4 mr-1" />
+                          View on GitHub
+                        </a>
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleConfigure(repo.id, 'general')}>
                         <Settings className="w-4 h-4 mr-1" />
                         Configure
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleTriggerDeploy(repo.id)}>
                         <Play className="w-4 h-4 mr-1" />
                         Trigger Deploy
                       </Button>
@@ -503,12 +1142,54 @@ export function GitHubIntegrationPanel() {
         <TabsContent value="pullrequests" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Pull Requests</CardTitle>
-              <CardDescription>Monitor and manage pull requests across your repositories</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>{UI_TEXT.pullRequests.title}</CardTitle>
+                  <CardDescription>{UI_TEXT.pullRequests.description}</CardDescription>
+                </div>
+            <div className="flex items-center space-x-4">
+                  {repos && repos.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">Repository:</span>
+                      <select 
+                        value={selectedRepository || ""} 
+                        onChange={(e) => setSelectedRepository(e.target.value)}
+                        className="px-3 py-1 border rounded-md text-sm w-[200px]"
+                      >
+                        {repos.map((repo) => (
+                          <option key={repo.id} value={repo.fullName}>
+                            {repo.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium">Status:</span>
+                    <select 
+                      value={prStatusFilter} 
+                      onChange={(e) => setPrStatusFilter(e.target.value as "all" | "open" | "closed" | "merged")}
+                      className="px-3 py-1 border rounded-md text-sm w-[120px]"
+                    >
+                      <option value="all">All</option>
+                      <option value="open">Open</option>
+                      <option value="closed">Closed</option>
+                      <option value="merged">Merged</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockPullRequests.map((pr) => (
+                {prLoading && <div className="text-sm text-muted-foreground">{UI_TEXT.pullRequests.loading}</div>}
+                {prError && <div className="text-sm text-red-500">{prError}</div>}
+                {!prLoading && !prError && filteredPullRequests.length === 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    {prStatusFilter === "all" ? UI_TEXT.pullRequests.noPRs : `No ${prStatusFilter} pull requests found`}
+                  </div>
+                )}
+                {!prLoading && !prError && filteredPullRequests.map((pr) => (
                   <div key={pr.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
@@ -537,11 +1218,32 @@ export function GitHubIntegrationPanel() {
                         )}
                       </div>
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
-                          <ExternalLink className="w-4 h-4 mr-1" />
-                          View PR
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          asChild={!!pr.htmlUrl}
+                          disabled={!pr.htmlUrl}
+                        >
+                          {pr.htmlUrl ? (
+                            <a href={pr.htmlUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                              <ExternalLink className="w-4 h-4 mr-1" />
+                              {UI_TEXT.pullRequests.viewPR}
+                            </a>
+                          ) : (
+                            <span className="flex items-center">
+                              <ExternalLink className="w-4 h-4 mr-1" />
+                              {UI_TEXT.pullRequests.viewPR}
+                            </span>
+                          )}
                         </Button>
-                        {pr.status === "open" && pr.ciStatus === "success" && <Button size="sm">Deploy Preview</Button>}
+                        {pr.status === "open" && pr.ciStatus === "success" && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleDeployPreview(pr)}
+                          >
+                            {UI_TEXT.pullRequests.deployPreview}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -554,39 +1256,103 @@ export function GitHubIntegrationPanel() {
         <TabsContent value="pipelines" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>CI/CD Pipelines</CardTitle>
-              <CardDescription>Monitor build and deployment pipelines</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Deployment History</CardTitle>
+        <CardDescription>
+          Monitor deployment progress and history
+          {!user ? (
+            <span className="ml-2 text-orange-500">● Not Authenticated</span>
+          ) : isConnected ? (
+            <span className="ml-2 text-green-600">● Live</span>
+          ) : (
+            <span className="ml-2 text-red-500">● Offline</span>
+          )}
+          <Button 
+            onClick={async () => {
+              try { 
+                setRefreshing(true);
+                await Promise.all([
+                  handleRefreshDeploymentHistories(),
+                  handleRefreshPipelines(),
+                ])
+              } finally { setRefreshing(false) }
+            }}
+            variant="outline" 
+            size="sm"
+            aria-busy={refreshing}
+            disabled={refreshing}
+            className="ml-2 h-6 px-2 inline-flex items-center gap-1 align-middle transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </Button>
+        </CardDescription>
+                </div>
+                {repos && repos.length > 0 && (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">Repository:</span>
+                      <select 
+                        value={selectedPipelineRepository || repos[0]?.fullName || ""} 
+                        onChange={(e) => { setSelectedPipelineRepository(e.target.value); setSelectedDeploymentRepository(e.target.value) }}
+                        className="px-3 py-1 border rounded-md text-sm w-[240px]"
+                      >
+                        {repos.map((repo) => (
+                          <option key={repo.id} value={repo.fullName}>
+                            {repo.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">Status:</span>
+                      <select 
+                        value={deploymentStatusFilter} 
+                        onChange={(e) => setDeploymentStatusFilter(e.target.value as "all" | "running" | "success" | "failed")}
+                        className="px-3 py-1 border rounded-md text-sm w-[120px]"
+                      >
+                        <option value="all">All</option>
+                        <option value="running">Running</option>
+                        <option value="success">Success</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </div>
+                  {/* Global last WebSocket update time */}
+                  <div className="text-xs text-muted-foreground">
+                    {/* This will be set by child monitors via console/logs; optional future lift-up */}
+                  </div>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockPipelines.map((pipeline) => (
-                  <div key={pipeline.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        {getPipelineStatusIcon(pipeline.status)}
-                        <span className="font-medium">{pipeline.repository}</span>
-                        <Badge variant="outline">{pipeline.branch}</Badge>
-                        <span className="text-sm text-muted-foreground">#{pipeline.commit}</span>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {pipeline.duration ? `${pipeline.duration}s` : "Running..."}
-                      </div>
-                    </div>
-
-                    <div className="flex space-x-4 mb-3">
-                      {pipeline.stages.map((stage, index) => (
-                        <div key={index} className="flex items-center space-x-1">
-                          {stage.status === "success" && <CheckCircle className="w-3 h-3 text-green-500" />}
-                          {stage.status === "running" && <Clock className="w-3 h-3 text-blue-500 animate-pulse" />}
-                          {stage.status === "failed" && <XCircle className="w-3 h-3 text-red-500" />}
-                          {stage.status === "pending" && <Clock className="w-3 h-3 text-gray-400" />}
-                          <span className="text-sm">{stage.name}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="text-sm text-muted-foreground">Started {pipeline.startedAt.toLocaleString()}</div>
+                {pipelineLoading && <div className="text-sm text-muted-foreground">Loading deployment histories...</div>}
+                {pipelineError && <div className="text-sm text-red-500">{pipelineError}</div>}
+                {!pipelineLoading && !pipelineError && pipelines.length === 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    {deploymentStatusFilter === "all" ? "No deployments found" : `No ${deploymentStatusFilter} deployments found`}
                   </div>
+                )}
+                {!pipelineLoading && !pipelineError && pipelines
+                  .filter((p) => {
+                    if (deploymentStatusFilter === "all") return true
+                    if (deploymentStatusFilter === "success") return p.status === "completed"
+                    return p.status === deploymentStatusFilter
+                  })
+                  .map((deployment) => (
+                  <RealtimeDeploymentMonitor
+                    key={deployment.id}
+                    deploymentId={deployment.id}
+                    repository={deployment.repository}
+                    initialStatus={deployment.status}
+                    initialStages={deployment.stages}
+                    initialTiming={deployment.timing}
+                    error={deployment.error}
+                    auto_deploy_enabled={deployment.auto_deploy_enabled ?? false}
+                    userId={userId}
+                  />
                 ))}
               </div>
             </CardContent>
@@ -649,3 +1415,28 @@ export function GitHubIntegrationPanel() {
     </div>
   )
 }
+
+// Helper functions for deployment status icons
+function getDeploymentStatusIcon(status: "running" | "success" | "failed") {
+  switch (status) {
+    case "running":
+      return <Clock className="w-4 h-4 text-blue-500" />
+    case "success":
+      return <CheckCircle className="w-4 h-4 text-green-500" />
+    case "failed":
+      return <XCircle className="w-4 h-4 text-red-500" />
+    default:
+      return <Clock className="w-4 h-4 text-gray-500" />
+  }
+}
+
+function getStageStatusIcon(status: "success" | "failed" | null) {
+  if (status === "success") {
+    return <CheckCircle className="w-4 h-4 text-green-500" />
+  } else if (status === "failed") {
+    return <XCircle className="w-4 h-4 text-red-500" />
+  } else {
+    return <Clock className="w-4 h-4 text-gray-400" />
+  }
+}
+
