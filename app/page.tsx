@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
@@ -12,6 +13,26 @@ import { RealTimeMonitoringDashboard } from "@/components/real-time-monitoring-d
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState("dashboard")
+  const { toast } = useToast()
+
+  // Show Slack connected toast when redirected with ?slack=connected
+  useEffect(() => {
+    try {
+      const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : undefined
+      if (search?.get("slack") === "connected") {
+        try {
+          toast({ title: "Slack 연동 완료", description: "이제 배포 알림을 Slack에서 받아요.", duration: 3000 })
+        } catch {
+          // fallback
+          // eslint-disable-next-line no-alert
+          alert("Slack 연동이 완료되었습니다.")
+        }
+        const url = new URL(window.location.href)
+        url.searchParams.delete("slack")
+        window.history.replaceState({}, "", url.toString())
+      }
+    } catch {}
+  }, [])
 
   const renderContent = () => {
     switch (activeView) {

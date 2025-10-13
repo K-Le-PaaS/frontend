@@ -67,13 +67,12 @@ class GlobalWebSocketManager {
       ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
       : (process.env.NEXT_PUBLIC_WS_URL as string)
     const wsUrl = `${base}/api/v1/ws/deployments`
-    console.log("Connecting to global WebSocket:", wsUrl)
 
     try {
       this.ws = new WebSocket(wsUrl)
       
       this.ws.onopen = () => {
-        console.log("Global WebSocket connected")
+        // connected
         this._isConnecting = false
         this.reconnectAttempts = 0
         
@@ -93,32 +92,21 @@ class GlobalWebSocketManager {
         
         // WebSocket 연결 완료 후 모든 구독자들에게 subscribe 메시지 전송
         this.subscribers.forEach((subscriber) => {
-          if (subscriber.user_id) {
-      console.log("Sending subscribe message on connection:", {
-        type: "subscribe",
-        subscriber_id: subscriber.id,
-        deployment_id: subscriber.deployment_id,
-        user_id: subscriber.user_id
-      })
-      console.log("Actual user_id being sent:", subscriber.user_id)
+            if (subscriber.user_id) {
             this.sendMessage({
               type: "subscribe",
               subscriber_id: subscriber.id,
               deployment_id: subscriber.deployment_id,
               user_id: subscriber.user_id
             })
-          } else {
-            console.log("WebSocket connected but userId is undefined for subscriber:", subscriber.id)
-          }
+          } else { /* no-op */ }
         })
       }
 
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
-          console.log("Global WebSocket message received:", message)
-          console.log("Message type:", message.type)
-          console.log("Message deployment_id:", message.deployment_id)
+          // message received
 
           // 서버 시간 오프셋 보정 (가능한 가장 이른 지점에서 1회 이상 갱신)
           if (message.timestamp) {
@@ -132,19 +120,16 @@ class GlobalWebSocketManager {
           // 모든 구독자에게 메시지 전파
           this.subscribers.forEach((subscriber) => {
             try {
-              console.log("Forwarding message to subscriber:", subscriber.id)
               subscriber.onMessage(message)
             } catch (error) {
               console.error("Error in subscriber message handler:", error)
             }
           })
-        } catch (error) {
-          console.error("Failed to parse WebSocket message:", error)
-        }
+        } catch (error) { /* ignore parse error */ }
       }
 
       this.ws.onerror = (error) => {
-        console.error("Global WebSocket error:", error)
+        // error handler
         this._isConnecting = false
         
         // 모든 구독자에게 오류 전파
@@ -152,15 +137,13 @@ class GlobalWebSocketManager {
           if (subscriber.onError) {
             try {
               subscriber.onError(error)
-            } catch (err) {
-              console.error("Error in subscriber error handler:", err)
-            }
+              } catch (err) { /* ignore */ }
           }
         })
       }
 
       this.ws.onclose = (event) => {
-        console.log("Global WebSocket closed:", event.code, event.reason)
+        // closed
         this._isConnecting = false
         
         // 모든 구독자에게 종료 이벤트 전파
@@ -178,20 +161,16 @@ class GlobalWebSocketManager {
         if (event.code !== 1000 && event.code !== 1001 && this.reconnectAttempts < this.maxReconnectAttempts) {
           // 빠른 재연결: 500ms부터 시작, 상한 5000ms
           const delay = Math.min(500 * Math.pow(1.4, this.reconnectAttempts), 5000)
-          console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`)
+          // reconnecting soon
           
           this.reconnectTimeout = setTimeout(() => {
             this.reconnectAttempts++
             this.connect()
           }, delay)
-        } else if (event.code === 1000 || event.code === 1001) {
-          console.log("WebSocket closed normally, not reconnecting")
-        } else {
-          console.log("Max reconnection attempts reached")
-        }
+        } else if (event.code === 1000 || event.code === 1001) { /* normal close */ } else { /* reached max */ }
       }
     } catch (error) {
-      console.error("Failed to create global WebSocket connection:", error)
+      // connection create failed
       this._isConnecting = false
     }
   }
@@ -217,7 +196,7 @@ class GlobalWebSocketManager {
     }
     
     this.subscribers.set(subscriber.id, subscriber)
-    console.log(`Subscriber ${subscriber.id} added. Total subscribers: ${this.subscribers.size}`)
+    // subscriber added
     
     // 첫 번째 구독자일 때 연결 시작
     if (this.subscribers.size === 1) {
@@ -226,28 +205,18 @@ class GlobalWebSocketManager {
     
     // WebSocket이 이미 연결된 상태에서 새로운 구독자가 추가된 경우 즉시 subscribe 메시지 전송
     if (this.ws?.readyState === WebSocket.OPEN && subscriber.user_id) {
-      console.log("Sending subscribe message for new subscriber:", {
-        type: "subscribe",
-        subscriber_id: subscriber.id,
-        deployment_id: subscriber.deployment_id,
-        user_id: subscriber.user_id
-      })
-      console.log("Actual user_id being sent for new subscriber:", subscriber.user_id)
       this.sendMessage({
         type: "subscribe",
         subscriber_id: subscriber.id,
         deployment_id: subscriber.deployment_id,
         user_id: subscriber.user_id
       })
-    } else if (this.ws?.readyState === WebSocket.OPEN && !subscriber.user_id) {
-      console.log("WebSocket connected but userId is undefined for new subscriber:", subscriber.id)
-    }
+    } else if (this.ws?.readyState === WebSocket.OPEN && !subscriber.user_id) { /* no-op */ }
   }
 
   unsubscribe(id: string) {
     if (this.subscribers.has(id)) {
       this.subscribers.delete(id)
-      console.log(`Subscriber ${id} removed. Total subscribers: ${this.subscribers.size}`)
       
       // 마지막 구독자일 때 연결 종료 (지연)
       if (this.subscribers.size === 0) {
@@ -317,7 +286,7 @@ export function useGlobalWebSocket({
 
   useEffect(() => {
     const manager = GlobalWebSocketManager.getInstance()
-    console.log("useGlobalWebSocket: userId received:", userId)
+    // userId received
     
     const subscriber: WebSocketSubscriber = {
       id: subscriberId.current,
@@ -351,16 +320,12 @@ export function useGlobalWebSocket({
       
       // 연결이 끊어졌을 때 즉시 재연결 시도
       if (!connected && !manager.isConnecting) {
-        console.log("WebSocket disconnected, attempting to reconnect...")
+        // reconnect on disconnect
         manager.connect()
       }
       
       // 연결 상태 로깅
-      if (connected) {
-        console.log("✅ WebSocket is connected")
-      } else {
-        console.log("❌ WebSocket is disconnected")
-      }
+      // (reduced noisy logs)
     }
 
     // 초기 상태 설정
@@ -383,7 +348,7 @@ export function useGlobalWebSocket({
   useEffect(() => {
     if (userId && isConnected) {
       const manager = GlobalWebSocketManager.getInstance()
-      console.log("userId changed, resending subscribe message for:", userId)
+      // userId changed; re-subscribe
       
       // 기존 구독자를 업데이트하고 subscribe 메시지 재전송
       manager.subscribe({

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api"
 import { useGlobalWebSocket } from "@/hooks/use-global-websocket"
 import { useAuth } from "@/contexts/auth-context"
@@ -185,6 +186,7 @@ interface Pipeline {
 }
 
 export function GitHubIntegrationPanel() {
+  // slackConnected는 DB 조회로 최종 결정
   const [newRepoUrl, setNewRepoUrl] = useState("")
   const [repos, setRepos] = useState<Repository[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -342,12 +344,33 @@ export function GitHubIntegrationPanel() {
 
   const [deploymentStatusFilter, setDeploymentStatusFilter] = useState<"all" | "running" | "success" | "failed">("all")
   const [refreshing, setRefreshing] = useState(false)
+  const [connectingSlack, setConnectingSlack] = useState(false)
+  const [slackConnected, setSlackConnected] = useState(false)
   
   // Legacy Pipelines state (for backward compatibility)
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [pipelineLoading, setPipelineLoading] = useState(false)
   const [pipelineError, setPipelineError] = useState<string | null>(null)
   const [selectedPipelineRepository, setSelectedPipelineRepository] = useState<string | undefined>(undefined)
+
+  const handleConnectSlack = useCallback(async () => {
+    try {
+      setConnectingSlack(true)
+      // redirectUri를 전달하지 않으면 서버 설정(KLEPAAS_SLACK_REDIRECT_URI)을 사용
+      const data: any = await apiClient.getSlackAuthUrl()
+      const authUrl = (data && (data.auth_url || data.url || data.authUrl)) as string | undefined
+      if (authUrl) {
+        window.location.href = authUrl
+      } else {
+        alert('Slack 인증 URL 생성에 실패했습니다.')
+      }
+    } catch (e) {
+      console.error('Failed to get Slack auth url', e)
+      alert('Slack 연동 중 오류가 발생했습니다.')
+    } finally {
+      setConnectingSlack(false)
+    }
+  }, [])
 
   // Filtered PRs based on status filter
   const filteredPullRequests = pullRequests.filter(pr => {
@@ -362,6 +385,28 @@ export function GitHubIntegrationPanel() {
   })
 
   useEffect(() => {
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
+    const justConnected = searchParams?.get('slack') === 'connected'
+    if (justConnected) {
+      try {
+        // 간단한 토스트 표시: 브라우저 기본 alert로 대체 (원하면 shadcn Toast로 변경 가능)
+        // eslint-disable-next-line no-alert
+        alert('Slack 연동이 완료되었습니다.')
+        // 쿼리스트링 제거
+        const url = new URL(window.location.href)
+        url.searchParams.delete('slack')
+        window.history.replaceState({}, '', url.toString())
+      } catch {}
+    }
+    // DB 상태 조회
+    ;(async () => {
+      try {
+        const status: any = await apiClient.getSlackStatus()
+        setSlackConnected(Boolean(status?.connected))
+      } catch {
+        setSlackConnected(false)
+      }
+    })()
     let mounted = true
     ;(async () => {
       try {
@@ -728,7 +773,6 @@ export function GitHubIntegrationPanel() {
 
       setPipelines(mapped)
     } catch (error: any) {
-      console.error('Failed to refresh pipelines:', error)
       setPipelineError(error?.message || 'Failed to load pipelines')
     } finally {
       setPipelineLoading(false)
@@ -1286,6 +1330,17 @@ export function GitHubIntegrationPanel() {
           >
             <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Refreshing…' : 'Refresh'}
+          </Button>
+          <Button 
+            onClick={handleConnectSlack}
+            variant={slackConnected ? "secondary" : "default"}
+            size="sm"
+            aria-busy={connectingSlack}
+            disabled={connectingSlack || slackConnected}
+            className="ml-2 h-6 px-2 inline-flex items-center gap-1 align-middle transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-60"
+            title={slackConnected ? 'Already connected' : undefined}
+          >
+            {slackConnected ? 'Connected!' : (connectingSlack ? 'Connecting…' : 'Connect Slack')}
           </Button>
         </CardDescription>
                 </div>

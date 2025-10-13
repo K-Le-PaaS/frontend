@@ -91,8 +91,7 @@ export function DeploymentProgress({
     sourcebuild: 0,
     sourcedeploy: 0
   })
-  // 서버-클라이언트 시간 오프셋 사용을 위해 전역 WS 매니저 접근
-  const wsManager = (useGlobalWebSocket as any)?.__proto__ ? null : null
+  // Note: 전역 WS 매니저는 훅 내부에서 관리되므로 외부 접근 코드는 제거
   // helper: 보정된 now
   const getCorrectedNowMs = () => {
     try {
@@ -138,7 +137,6 @@ export function DeploymentProgress({
       
       // 진행 중인(첫 번째 null) 스테이지의 카운터 시작
       if (isThisRunning && !counterIntervals.current[stageKey]) {
-        console.log(`Starting counter for stage: ${stageKey}`)
         // 카운터가 이미 시작되지 않은 경우에만 0으로 초기화
         setStageCounters(prev => {
           if (prev[stageKey] === undefined || prev[stageKey] === 0) {
@@ -155,7 +153,6 @@ export function DeploymentProgress({
             const computed = Math.max(0, Math.round((now - startedAtMs) / 1000))
             const base = prev[stageKey] ?? 0
             const newCount = Math.max(base + 1, computed)
-            console.log(`Counter for ${stageKey}: ${newCount}s`)
             return { 
               ...prev, 
               [stageKey]: newCount
@@ -166,7 +163,6 @@ export function DeploymentProgress({
       
       // 완료/실패 또는 더 이상 활성 스테이지가 아니면 카운터 정지 (최종 시간 유지)
       if (((isCompleted || isFailed) || (!isThisRunning && counterIntervals.current[stageKey])) && counterIntervals.current[stageKey]) {
-        console.log(`Stopping counter for stage: ${stageKey}`)
         clearInterval(counterIntervals.current[stageKey]!)
         counterIntervals.current[stageKey] = null
         // 카운터는 최종 시간을 유지 (리셋하지 않음)
@@ -230,6 +226,17 @@ export function DeploymentProgress({
     } else {
       return <Clock className="w-5 h-5 text-blue-500 animate-spin" />
     }
+  }
+
+  // 가독성을 위한 스테이지 소요 시간 계산 헬퍼
+  const calculateStageDuration = (stage: any, counterValue: number): number => {
+    if (stage?.duration != null) return stage.duration
+    if (stage?.completed_at && stage?.started_at) {
+      const startTime = new Date(stage.started_at).getTime()
+      const endTime = new Date(stage.completed_at).getTime()
+      return Math.max(0, Math.round((endTime - startTime) / 1000))
+    }
+    return stage?.elapsed_time ?? counterValue ?? 0
   }
 
   const getStageColor = (stageStatus: "success" | "failed" | null, stageKey: string) => {
@@ -363,7 +370,7 @@ export function DeploymentProgress({
                           {(isCompleted || isFailed || stage.duration) ? (
                             <div className="space-y-1">
                               <div className={`text-sm font-medium ${isFailed ? 'text-red-600' : 'text-green-600'}`}>
-                                {isFailed ? '✗' : '✓'} { (stage.duration ?? (stage.completed_at && stage.started_at ? Math.max(0, Math.round((new Date(stage.completed_at).getTime() - new Date(stage.started_at).getTime())/1000)) : stage.elapsed_time ?? stageCounters[stageKey] ?? 0)) }s
+                                {isFailed ? '✗' : '✓'} { calculateStageDuration(stage, stageCounters[stageKey]) }s
                               </div>
                               {/* Completed/Failed: 진행률 바 표시하지 않음 */}
                             </div>

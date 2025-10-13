@@ -3,6 +3,8 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { Toaster } from '@/components/ui/toaster'
+import SlackConnectedNotifier from '@/components/slack-connected-notifier'
 
 export const metadata: Metadata = {
   title: 'K-Le-PaaS - AI-First Kubernetes Platform',
@@ -18,8 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+        <SlackConnectedNotifier />
         {children}
         <Analytics />
+        <Toaster />
       </body>
     </html>
   )
