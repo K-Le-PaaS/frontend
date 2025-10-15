@@ -118,6 +118,18 @@ class ApiClient {
     return this.request(endpoint)
   }
 
+  // Slack OAuth endpoints
+  async getSlackAuthUrl(redirectUri?: string) {
+    const endpoint = redirectUri
+      ? `/api/v1/slack/auth/url?redirect_uri=${encodeURIComponent(redirectUri)}`
+      : `/api/v1/slack/auth/url`
+    return this.request(endpoint)
+  }
+
+  async getSlackStatus() {
+    return this.request('/api/v1/slack/status')
+  }
+
   async verifyToken() {
     // 간단한 ping 엔드포인트가 없으므로 사용자 정보 조회를 토큰 검증으로 사용
     try {
