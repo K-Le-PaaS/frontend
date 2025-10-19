@@ -229,9 +229,9 @@ class ApiClient {
   }
 
   // NLP Command console
-  async getCommandHistory(limit: number = 50, offset: number = 0) {
+  async getCommandHistory(limit: number = 50, offset: number = 0): Promise<any[]> {
     const ts = Date.now()
-    return this.request(`/api/v1/nlp/history?limit=${limit}&offset=${offset}&t=${ts}`)
+    return this.request<any[]>(`/api/v1/nlp/history?limit=${limit}&offset=${offset}&t=${ts}`)
   }
 
   async runCommand(payload: { text: string; context?: any }) {
