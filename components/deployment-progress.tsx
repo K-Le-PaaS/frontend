@@ -10,7 +10,7 @@ import { CheckCircle, XCircle, Clock, Zap, GitBranch, Package, Rocket } from "lu
 interface DeploymentProgressProps {
   deploymentId: string | number
   repository: string
-  status: "running" | "success" | "failed" | "completed" | "pending" | "unknown"
+  status: "running" | "success" | "failed" | "completed" | "pending" | "unknown" | "cancelled"
   stages: {
     sourcecommit: {
       status: "success" | "failed" | null

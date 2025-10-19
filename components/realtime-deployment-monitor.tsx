@@ -52,6 +52,7 @@ interface WebSocketMessage {
   started_at?: string
   completed_at?: string
   duration?: number
+  total_duration?: number
   data?: any
   timestamp?: string
 }
@@ -83,7 +84,7 @@ export function RealtimeDeploymentMonitor({
   const [runningElapsedSec, setRunningElapsedSec] = useState<number>(0)
 
   const { isConnected, connectionStatus, sendMessage } = useGlobalWebSocket({
-    deploymentId,
+    deploymentId: typeof deploymentId === 'string' ? parseInt(deploymentId, 10) : deploymentId,
     userId: userId, // userId 전달하여 broadcast_to_user가 작동하도록 함
     onMessage: (message: WebSocketMessage) => {
       console.log("RealtimeDeploymentMonitor received WebSocket message:", message)
@@ -107,10 +108,10 @@ export function RealtimeDeploymentMonitor({
         case "deployment_started":
           setCurrentStatus("running")
           setCurrentError(null)
-          if (message.timestamp) {
+          if (message.timestamp || message.started_at) {
             setCurrentTiming(prev => ({
               ...prev,
-              started_at: message.started_at || message.timestamp
+              started_at: message.started_at || message.timestamp || prev.started_at
             }))
           }
           break
