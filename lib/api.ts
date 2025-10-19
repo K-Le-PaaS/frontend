@@ -228,19 +228,27 @@ class ApiClient {
     return this.request('/api/v1/deployment-histories/websocket/status')
   }
 
-  // Command console (guarded: avoid runtime 'is not a function')
+  // NLP Command console
   async getCommandHistory(limit: number = 50, offset: number = 0) {
     const ts = Date.now()
-    // Backend route may vary; keep stable default and allow proxy rewrite
-    return this.request(`/api/v1/commands/history?limit=${limit}&offset=${offset}&t=${ts}`)
+    return this.request(`/api/v1/nlp/history?limit=${limit}&offset=${offset}&t=${ts}`)
   }
 
   async runCommand(payload: { text: string; context?: any }) {
-    // Backend expects { text: string, ... }
-    return this.request('/api/v1/commands/execute', {
+    // Backend expects { command: string, timestamp: string, context?: any }
+    return this.request('/api/v1/nlp/process', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        command: payload.text,
+        timestamp: new Date().toISOString(),
+        context: payload.context,
+      }),
     })
+  }
+
+  async getCommandSuggestions(context?: string) {
+    const params = context ? `?context=${encodeURIComponent(context)}` : ''
+    return this.request(`/api/v1/nlp/suggestions${params}`)
   }
 }
 
