@@ -12,25 +12,38 @@ import { Send, Terminal, Clock, CheckCircle, AlertCircle, Lightbulb } from "luci
 import { apiClient } from "@/lib/api"
 
 interface CommandHistory {
-  id: number
-  command_text: string
-  tool: string
-  args: Record<string, any>
+  id: string
+  command: string
+  timestamp: string
+  status: "processing" | "completed" | "failed"
   result?: Record<string, any>
-  status: "pending" | "success" | "error"
-  error_message?: string
-  user_id?: string
-  created_at: string
-  updated_at: string
+  error?: string
 }
 
 const suggestedCommands = [
-  "Deploy frontend app to production",
-  "Scale backend service to 3 replicas",
-  "Create new namespace for staging",
-  "Update database configuration",
-  "Rollback api-service to previous version",
-  "Show cluster resource usage",
+  // Pod 관련
+  "nginx pod 상태 확인해줘",
+  "frontend-app pod 로그 50줄 보여줘",
+  "api-service pod 재시작해줘",
+
+  // Deployment 관련
+  "nginx deployment 스케일 3개로 늘려줘",
+  "frontend-app deployment 롤백해줘",
+  "backend deployment 배포해줘",
+
+  // Service 관련
+  "api-service endpoint 확인해줘",
+  "web-service 정보 보여줘",
+
+  // 리소스 목록 조회
+  "모든 pod 목록 보여줘",
+  "deployment 목록 확인해줘",
+  "service 목록 보여줘",
+  "namespace 목록 확인해줘",
+
+  // 시스템 상태
+  "클러스터 상태 확인해줘",
+  "앱 목록 보여줘",
 ]
 
 export function NaturalLanguageCommand() {
@@ -86,36 +99,47 @@ export function NaturalLanguageCommand() {
 
   const getStatusIcon = (status: CommandHistory["status"]) => {
     switch (status) {
-      case "pending":
+      case "processing":
         return <Clock className="w-4 h-4 text-yellow-500 animate-spin" />
-      case "success":
+      case "completed":
         return <CheckCircle className="w-4 h-4 text-green-500" />
-      case "error":
+      case "failed":
         return <AlertCircle className="w-4 h-4 text-red-500" />
     }
   }
 
   const getStatusBadge = (status: CommandHistory["status"]) => {
     switch (status) {
-      case "pending":
+      case "processing":
         return (
           <Badge variant="outline" className="text-yellow-600 border-yellow-200">
             Processing
           </Badge>
         )
-      case "success":
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Success</Badge>
-      case "error":
-        return <Badge variant="destructive">Error</Badge>
+      case "completed":
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Completed</Badge>
+      case "failed":
+        return <Badge variant="destructive">Failed</Badge>
     }
   }
 
-  const formatResult = (result: Record<string, any> | undefined, errorMessage?: string) => {
-    if (errorMessage) {
-      return errorMessage
+  const formatResult = (result: Record<string, any> | undefined, error?: string) => {
+    if (error) {
+      return error
     }
     if (result) {
-      return JSON.stringify(result, null, 2)
+      // Format the NLP result nicely
+      const message = result.message || ''
+      const action = result.action || ''
+      const k8sResult = result.k8s_result || {}
+
+      let output = ''
+      if (message) output += `${message}\n\n`
+      if (action) output += `Action: ${action}\n`
+      if (Object.keys(k8sResult).length > 0) {
+        output += `\nKubernetes Result:\n${JSON.stringify(k8sResult, null, 2)}`
+      }
+      return output || JSON.stringify(result, null, 2)
     }
     return "No result available"
   }
@@ -202,19 +226,16 @@ export function NaturalLanguageCommand() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         {getStatusIcon(item.status)}
-                        <span className="font-medium text-sm">{item.command_text}</span>
+                        <span className="font-medium text-sm">{item.command}</span>
                       </div>
                       {getStatusBadge(item.status)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(item.created_at).toLocaleString()}
+                      {new Date(item.timestamp).toLocaleString()}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Tool: {item.tool} | Args: {JSON.stringify(item.args)}
-                    </div>
-                    {(item.result || item.error_message) && (
+                    {(item.result || item.error) && (
                       <div className="text-sm text-muted-foreground bg-muted p-2 rounded font-mono text-xs">
-                        <pre>{formatResult(item.result, item.error_message)}</pre>
+                        <pre className="whitespace-pre-wrap">{formatResult(item.result, item.error)}</pre>
                       </div>
                     )}
                   </div>
