@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { config } from "@/lib/config"
 
 interface WebSocketMessage {
   type: string
@@ -63,8 +64,7 @@ class GlobalWebSocketManager {
     }
 
     this._isConnecting = true
-    const base = 'wss://klepaas.com/api'
-    const wsUrl = `${base}/api/v1/ws/deployments`
+    const wsUrl = `${config.api.wsUrl}/api/v1/ws/deployments`
 
     try {
       this.ws = new WebSocket(wsUrl)
