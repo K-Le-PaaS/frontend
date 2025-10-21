@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://klepaas.com'
+const API_BASE_URL = 'https://klepaas.com/api'
 
 class ApiClient {
   private baseURL: string

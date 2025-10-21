@@ -63,7 +63,7 @@ class GlobalWebSocketManager {
     }
 
     this._isConnecting = true
-    const base = 'wss://klepaas.com'
+    const base = 'wss://klepaas.com/api'
     const wsUrl = `${base}/api/v1/ws/deployments`
 
     try {
