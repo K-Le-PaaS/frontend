@@ -25,6 +25,9 @@ jobs:
           node-version: 20
 
       - name: Install & build
+        env:
+          NEXT_PUBLIC_API_URL: https://klepaas.com
+          NEXT_PUBLIC_WS_URL: wss://klepaas.com
         run: |
           npm install
           npm run build
