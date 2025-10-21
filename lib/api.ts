@@ -1,9 +1,9 @@
-const API_BASE_URL = 'https://klepaas.com/api'
+import { config } from './config'
 
 class ApiClient {
   private baseURL: string
 
-  constructor(baseURL: string = API_BASE_URL) {
+  constructor(baseURL: string = config.api.baseUrl) {
     this.baseURL = baseURL
   }
 
@@ -110,10 +110,9 @@ class ApiClient {
 
   // OAuth2 endpoints
   async getOAuth2Url(provider: 'google' | 'github') {
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
-    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_ORIGIN || 'https://klepaas.com')
-    // Frontend callback route
-    const redirectUri = `${origin}${basePath}/oauth2-callback`
+    // 브라우저에서 현재 origin 가져오기
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const redirectUri = `${origin}${config.app.basePath}/oauth2-callback`
     const endpoint = `/api/v1/auth/oauth2/url/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`
     return this.request(endpoint)
   }

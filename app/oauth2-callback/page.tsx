@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { config } from '@/lib/config'
 
 function CallbackInner() {
   const searchParams = useSearchParams()
@@ -31,12 +32,12 @@ function CallbackInner() {
 
   const handleOAuth2Callback = async (code: string, provider: 'google' | 'github') => {
     try {
-                  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
-                  const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_ORIGIN || 'https://klepaas.com')
-                  const redirectUri = `${origin}${basePath}/oauth2-callback`
-      
+      // 브라우저에서 현재 origin 가져오기
+      const origin = window.location.origin
+      const redirectUri = `${origin}${config.app.basePath}/oauth2-callback`
+
       // 백엔드로 인증 코드 전송하여 사용자 정보 받기
-      const response = await fetch(`https://klepaas.com/api/v1/auth/oauth2/login`, {
+      const response = await fetch(`${config.api.baseUrl}/api/v1/auth/oauth2/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
