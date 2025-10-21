@@ -250,6 +250,45 @@ class ApiClient {
     const params = context ? `?context=${encodeURIComponent(context)}` : ''
     return this.request(`/api/v1/nlp/suggestions${params}`)
   }
+
+  // Cost Optimization endpoints
+  async sendConversationMessage(payload: {
+    command: string
+    session_id?: string
+    timestamp: string
+    context?: any
+  }): Promise<any> {
+    return this.request<any>('/api/v1/nlp/conversation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async confirmAction(payload: {
+    session_id: string
+    confirmed: boolean
+    user_response?: string
+  }): Promise<any> {
+    return this.request<any>('/api/v1/nlp/confirm', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  // Conversation history endpoints
+  async getConversationHistory(sessionId: string, limit: number = 50): Promise<any> {
+    return this.request<any>(`/api/v1/nlp/conversation/${sessionId}/history?limit=${limit}`)
+  }
+
+  async listConversations(): Promise<any> {
+    return this.request<any>('/api/v1/nlp/conversations')
+  }
+
+  async deleteConversation(sessionId: string): Promise<any> {
+    return this.request<any>(`/api/v1/nlp/conversation/${sessionId}`, {
+      method: 'DELETE',
+    })
+  }
 }
 
 export const apiClient = new ApiClient()
