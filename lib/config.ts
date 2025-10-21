@@ -6,24 +6,11 @@
  * 기본값을 제공하지 않으므로 누락 시 에러가 발생합니다.
  */
 
-// 필수 환경변수 검증
-const getRequiredEnv = (key: string): string => {
-  const value = process.env[key]
-  if (!value) {
-    throw new Error(
-      `❌ 필수 환경변수가 설정되지 않았습니다: ${key}\n` +
-      `빌드 시 다음과 같이 설정하세요:\n` +
-      `${key}=your_value npm run build`
-    )
-  }
-  return value
-}
-
 export const config = {
-  // API 기본 URL (필수)
+  // API 기본 URL
   api: {
-    baseUrl: getRequiredEnv('NEXT_PUBLIC_API_URL'),
-    wsUrl: getRequiredEnv('NEXT_PUBLIC_WS_URL'),
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://klepaas.com',
+    wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'wss://klepaas.com',
   },
 
   // 환경 정보
