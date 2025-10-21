@@ -63,9 +63,7 @@ class GlobalWebSocketManager {
     }
 
     this._isConnecting = true
-    const base = (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_WS_URL == null || process.env.NEXT_PUBLIC_WS_URL === ''))
-      ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
-      : (process.env.NEXT_PUBLIC_WS_URL as string)
+    const base = 'wss://klepaas.com'
     const wsUrl = `${base}/api/v1/ws/deployments`
 
     try {

@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = 'https://klepaas.com'
 
 class ApiClient {
   private baseURL: string
@@ -60,27 +60,27 @@ class ApiClient {
     })
   }
   async login(credentials: { email: string; password: string }) {
-    return this.request('/api/auth/login', {
+    return this.request('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     })
   }
 
   async register(userData: { email: string; password: string; name: string }) {
-    return this.request('/api/auth/register', {
+    return this.request('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     })
   }
 
   async logout() {
-    return this.request('/api/auth/logout', {
+    return this.request('/api/v1/auth/logout', {
       method: 'POST',
     })
   }
 
   async getCurrentUser() {
-    return this.request('/api/auth/me')
+    return this.request('/api/v1/auth/me')
   }
 
   // Dashboard endpoints
@@ -89,11 +89,11 @@ class ApiClient {
   }
 
   async getDeployments() {
-    return this.request('/api/deployments')
+    return this.request('/api/v1/deployments')
   }
 
   async getClusters() {
-    return this.request('/api/clusters')
+    return this.request('/api/v1/clusters')
   }
 
   // MCP endpoints
@@ -111,7 +111,7 @@ class ApiClient {
   // OAuth2 endpoints
   async getOAuth2Url(provider: 'google' | 'github') {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
-    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000')
+    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_ORIGIN || 'https://klepaas.com')
     // Frontend callback route
     const redirectUri = `${origin}${basePath}/oauth2-callback`
     const endpoint = `/api/v1/auth/oauth2/url/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`
