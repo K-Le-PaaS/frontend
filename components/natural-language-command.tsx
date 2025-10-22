@@ -23,6 +23,8 @@ import {
 } from "lucide-react"
 import { apiClient } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { NLPResponseRenderer } from "./nlp-response-renderers"
+import { NLPResponse } from "@/lib/types/nlp-response"
 
 // 메시지 타입 정의
 interface Message {
@@ -357,8 +359,16 @@ export function NaturalLanguageCommand() {
 
             {/* 실행 결과 */}
             {message.result && (
-              <div className="mt-2 p-2 bg-background/50 rounded text-xs font-mono overflow-x-auto">
-                <pre>{JSON.stringify(message.result, null, 2)}</pre>
+              <div className="mt-4">
+                <NLPResponseRenderer 
+                  response={message.result as NLPResponse}
+                  onRollbackClick={(version) => {
+                    // 롤백 버튼 클릭 시 자연어 명령 자동 입력
+                    const rollbackCommand = `${version.steps_back}번 전으로 롤백해줘`
+                    setInput(rollbackCommand)
+                    inputRef.current?.focus()
+                  }}
+                />
               </div>
             )}
           </div>
