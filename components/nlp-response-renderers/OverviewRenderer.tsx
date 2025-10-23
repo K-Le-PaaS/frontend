@@ -5,25 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Copy, Server, Activity, CheckCircle, AlertTriangle } from "lucide-react"
-
-interface OverviewResponse {
-  type: 'overview'
-  message: string
-  data: {
-    cluster_info: {
-      name: string
-      version: string
-      nodes: number
-    }
-    resources: {
-      pods: number
-      services: number
-      deployments: number
-      namespaces: number
-    }
-    health_status: string
-  }
-}
+import { OverviewResponse } from "@/lib/types/nlp-response"
 
 interface OverviewRendererProps {
   response: OverviewResponse

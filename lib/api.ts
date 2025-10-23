@@ -252,7 +252,7 @@ class ApiClient {
     return this.request('/api/v1/deployment-histories/websocket/status')
   }
 
-  async getRepositoriesLatestDeployments() {
+  async getRepositoriesLatestDeployments(): Promise<{ repositories: any[] }> {
     const ts = Date.now()
     return this.request(`/api/v1/deployment-histories/repositories/latest?t=${ts}`)
   }

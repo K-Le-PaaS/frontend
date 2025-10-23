@@ -5,21 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Copy, DollarSign, TrendingUp, AlertTriangle } from "lucide-react"
-
-interface CostAnalysisResponse {
-  type: 'cost_analysis'
-  message: string
-  data: {
-    monthly_cost: number
-    currency: string
-    optimization_suggestions: number
-    cost_breakdown: {
-      compute: number
-      storage: number
-      network: number
-    }
-  }
-}
+import { CostAnalysisResponse } from "@/lib/types/nlp-response"
 
 interface CostAnalysisRendererProps {
   response: CostAnalysisResponse

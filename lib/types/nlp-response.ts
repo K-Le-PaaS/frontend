@@ -27,6 +27,7 @@ export type NLPResponseType =
 
 export interface FormattedResponse {
   type: NLPResponseType
+  message: string
   summary: string
   data: {
     formatted: any
@@ -122,6 +123,8 @@ export interface DeploymentInfo {
   namespace: string
   replicas: string
   ready: string
+  up_to_date: string
+  available: string
   age: string
   image: string
 }
@@ -133,6 +136,7 @@ export interface IngressInfo {
   class: string
   hosts: string[]
   address: string
+  ports: string | object
   age: string
 }
 

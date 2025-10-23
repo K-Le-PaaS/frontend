@@ -6,26 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Copy, Server, ExternalLink } from "lucide-react"
-
-interface ServiceInfo {
-  name: string
-  type: string
-  cluster_ip: string
-  external_ip: string
-  ports: string
-  age: string
-  namespace: string
-}
-
-interface ServiceListResponse {
-  type: 'list_services'
-  message: string
-  data: {
-    namespace: string
-    total_services: number
-    services: ServiceInfo[]
-  }
-}
+import { ServiceListResponse, ServiceInfo } from "@/lib/types/nlp-response"
 
 interface ServiceListRendererProps {
   response: ServiceListResponse
