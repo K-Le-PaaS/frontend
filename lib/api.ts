@@ -108,6 +108,31 @@ class ApiClient {
     return this.request('/mcp/status')
   }
 
+  // NKS 모니터링 엔드포인트
+  async getNKSOverview() {
+    return this.request('/api/v1/monitoring/nks/overview')
+  }
+
+  async getNKSCpuUsage() {
+    return this.request('/api/v1/monitoring/nks/cpu-usage')
+  }
+
+  async getNKSMemoryUsage() {
+    return this.request('/api/v1/monitoring/nks/memory-usage')
+  }
+
+  async getNKSDiskUsage() {
+    return this.request('/api/v1/monitoring/nks/disk-usage')
+  }
+
+  async getNKSNetworkTraffic() {
+    return this.request('/api/v1/monitoring/nks/network-traffic')
+  }
+
+  async getNKSPodInfo() {
+    return this.request('/api/v1/monitoring/nks/pod-info')
+  }
+
   // OAuth2 endpoints
   async getOAuth2Url(provider: 'google' | 'github') {
     // 브라우저에서 현재 origin 가져오기
