@@ -228,6 +228,11 @@ class ApiClient {
     return this.request('/api/v1/deployment-histories/websocket/status')
   }
 
+  async getRepositoriesLatestDeployments() {
+    const ts = Date.now()
+    return this.request(`/api/v1/deployment-histories/repositories/latest?t=${ts}`)
+  }
+
   // NLP Command console
   async getCommandHistory(limit: number = 50, offset: number = 0): Promise<any[]> {
     const ts = Date.now()
@@ -292,4 +297,5 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient()
+export const api = apiClient
 export default apiClient
