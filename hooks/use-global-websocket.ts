@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { config } from "@/lib/config"
 
 interface WebSocketMessage {
   type: string
@@ -63,10 +64,7 @@ class GlobalWebSocketManager {
     }
 
     this._isConnecting = true
-    const base = (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_WS_URL == null || process.env.NEXT_PUBLIC_WS_URL === ''))
-      ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
-      : (process.env.NEXT_PUBLIC_WS_URL as string)
-    const wsUrl = `${base}/api/v1/ws/deployments`
+    const wsUrl = `${config.api.wsUrl}/api/v1/ws/deployments`
 
     try {
       this.ws = new WebSocket(wsUrl)

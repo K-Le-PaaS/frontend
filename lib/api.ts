@@ -1,9 +1,9 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { config } from './config'
 
 class ApiClient {
   private baseURL: string
 
-  constructor(baseURL: string = API_BASE_URL) {
+  constructor(baseURL: string = config.api.baseUrl) {
     this.baseURL = baseURL
   }
 
@@ -60,27 +60,27 @@ class ApiClient {
     })
   }
   async login(credentials: { email: string; password: string }) {
-    return this.request('/api/auth/login', {
+    return this.request('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     })
   }
 
   async register(userData: { email: string; password: string; name: string }) {
-    return this.request('/api/auth/register', {
+    return this.request('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     })
   }
 
   async logout() {
-    return this.request('/api/auth/logout', {
+    return this.request('/api/v1/auth/logout', {
       method: 'POST',
     })
   }
 
   async getCurrentUser() {
-    return this.request('/api/auth/me')
+    return this.request('/api/v1/auth/me')
   }
 
   // Dashboard endpoints
@@ -89,11 +89,11 @@ class ApiClient {
   }
 
   async getDeployments() {
-    return this.request('/api/deployments')
+    return this.request('/api/v1/deployments')
   }
 
   async getClusters() {
-    return this.request('/api/clusters')
+    return this.request('/api/v1/clusters')
   }
 
   // MCP endpoints
@@ -108,12 +108,36 @@ class ApiClient {
     return this.request('/mcp/status')
   }
 
+  // NKS 모니터링 엔드포인트
+  async getNKSOverview() {
+    return this.request('/api/v1/monitoring/nks/overview')
+  }
+
+  async getNKSCpuUsage() {
+    return this.request('/api/v1/monitoring/nks/cpu-usage')
+  }
+
+  async getNKSMemoryUsage() {
+    return this.request('/api/v1/monitoring/nks/memory-usage')
+  }
+
+  async getNKSDiskUsage() {
+    return this.request('/api/v1/monitoring/nks/disk-usage')
+  }
+
+  async getNKSNetworkTraffic() {
+    return this.request('/api/v1/monitoring/nks/network-traffic')
+  }
+
+  async getNKSPodInfo() {
+    return this.request('/api/v1/monitoring/nks/pod-info')
+  }
+
   // OAuth2 endpoints
   async getOAuth2Url(provider: 'google' | 'github') {
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
-    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000')
-    // Frontend callback route
-    const redirectUri = `${origin}${basePath}/oauth2-callback`
+    // 브라우저에서 현재 origin 가져오기
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const redirectUri = `${origin}${config.app.basePath}/oauth2-callback`
     const endpoint = `/api/v1/auth/oauth2/url/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`
     return this.request(endpoint)
   }
