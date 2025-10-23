@@ -5,17 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Copy, FileText, Download, RefreshCw } from "lucide-react"
-
-interface LogsResponse {
-  type: 'logs'
-  message: string
-  data: {
-    pod_name: string
-    namespace: string
-    logs: string[]
-    total_lines: number
-  }
-}
+import { LogsResponse } from "@/lib/types/nlp-response"
 
 interface LogsRendererProps {
   response: LogsResponse

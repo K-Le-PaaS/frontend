@@ -6,25 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Copy, Package, CheckCircle, XCircle, Clock } from "lucide-react"
-
-interface DeploymentInfo {
-  name: string
-  ready: string
-  up_to_date: string
-  available: string
-  age: string
-  namespace: string
-}
-
-interface DeploymentListResponse {
-  type: 'list_deployments'
-  message: string
-  data: {
-    namespace: string
-    total_deployments: number
-    deployments: DeploymentInfo[]
-  }
-}
+import { DeploymentListResponse, DeploymentInfo } from "@/lib/types/nlp-response"
 
 interface DeploymentListRendererProps {
   response: DeploymentListResponse

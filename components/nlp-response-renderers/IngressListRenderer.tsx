@@ -6,26 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Copy, Globe, ExternalLink } from "lucide-react"
-
-interface IngressInfo {
-  name: string
-  class: string
-  hosts: string
-  address: string
-  ports: string
-  age: string
-  namespace: string
-}
-
-interface IngressListResponse {
-  type: 'list_ingresses'
-  message: string
-  data: {
-    namespace: string
-    total_ingresses: number
-    ingresses: IngressInfo[]
-  }
-}
+import { IngressListResponse, IngressInfo } from "@/lib/types/nlp-response"
 
 interface IngressListRendererProps {
   response: IngressListResponse

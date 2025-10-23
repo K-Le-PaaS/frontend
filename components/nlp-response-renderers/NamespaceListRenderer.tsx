@@ -6,21 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Copy, Folder, CheckCircle, XCircle } from "lucide-react"
-
-interface NamespaceInfo {
-  name: string
-  status: string
-  age: string
-}
-
-interface NamespaceListResponse {
-  type: 'list_namespaces'
-  message: string
-  data: {
-    total_namespaces: number
-    namespaces: NamespaceInfo[]
-  }
-}
+import { NamespaceListResponse, NamespaceInfo } from "@/lib/types/nlp-response"
 
 interface NamespaceListRendererProps {
   response: NamespaceListResponse
