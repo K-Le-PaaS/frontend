@@ -74,7 +74,15 @@ interface RepositoryWorkload {
   auto_deploy_enabled: boolean
 }
 
-export function DeploymentStatusMonitoring() {
+interface DeploymentStatusMonitoringProps {
+  onNavigateToMonitoring?: () => void
+  onNavigateToPipelines?: () => void
+}
+
+export function DeploymentStatusMonitoring({ 
+  onNavigateToMonitoring, 
+  onNavigateToPipelines 
+}: DeploymentStatusMonitoringProps = {}) {
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
@@ -410,11 +418,29 @@ export function DeploymentStatusMonitoring() {
                     </div>
 
                     <div className="flex gap-2 pt-2">
-                      <Button variant="outline" className="flex-1">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => {
+                          setDetailsOpen(false)
+                          if (onNavigateToMonitoring) {
+                            onNavigateToMonitoring()
+                          }
+                        }}
+                      >
                         <Activity className="mr-2 h-4 w-4" />
                         View Monitoring
                       </Button>
-                      <Button variant="outline" className="flex-1">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => {
+                          setDetailsOpen(false)
+                          if (onNavigateToPipelines) {
+                            onNavigateToPipelines()
+                          }
+                        }}
+                      >
                         <Github className="mr-2 h-4 w-4" />
                         View CI/CD History
                       </Button>

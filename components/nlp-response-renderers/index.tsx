@@ -14,6 +14,7 @@ import { NamespaceListRenderer } from "./NamespaceListRenderer"
 import { LogsRenderer } from "./LogsRenderer"
 import { OverviewRenderer } from "./OverviewRenderer"
 import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
+import { DeployResponseRenderer } from "./DeployResponseRenderer"
 // import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
 // import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
 // import { OverviewRenderer } from "./OverviewRenderer"
@@ -28,9 +29,10 @@ import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 interface NLPResponseRendererProps {
   response: NLPResponse
   onRollbackClick?: (version: any) => void
+  onNavigateToPipelines?: () => void
 }
 
-export function NLPResponseRenderer({ response, onRollbackClick }: NLPResponseRendererProps) {
+export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPipelines }: NLPResponseRendererProps) {
   // 에러 응답 처리
   if (response.type === 'error') {
     return (
@@ -108,6 +110,10 @@ export function NLPResponseRenderer({ response, onRollbackClick }: NLPResponseRe
     
     case 'cost_analysis':
       return <CostAnalysisRenderer response={response} />
+    
+    case 'deploy':
+    case 'deploy_github_repository':
+      return <DeployResponseRenderer response={response} onNavigateToPipelines={onNavigateToPipelines} />
     
     // case 'get_service':
     //   return <ServiceDetailRenderer response={response} />
