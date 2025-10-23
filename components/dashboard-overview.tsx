@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive } from "lucide-react"
-import { apiClient } from "@/lib/api"
+import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye } from "lucide-react"
+import { apiClient, api } from "@/lib/api"
 
 interface DashboardData {
   clusters: number
@@ -15,28 +16,61 @@ interface DashboardData {
   activeDeployments: number
   cpuUsage: number
   memoryUsage: number
-  recentDeployments: Array<{
-    name: string
-    version: string
-    status: 'success' | 'in-progress' | 'failed'
-    time: string
-    message: string
-  }>
   systemHealth: Array<{
     service: string
     status: 'healthy' | 'warning' | 'error'
   }>
 }
 
+interface RepositoryWorkload {
+  owner: string
+  repo: string
+  full_name: string
+  branch: string
+  latest_deployment: {
+    id: number
+    status: "running" | "success" | "failed"
+    image: {
+      tag: string
+    }
+    commit: {
+      short_sha: string
+    }
+    cluster: {
+      replicas: {
+        desired: number
+        ready: number
+      }
+      resources: {
+        cpu: number
+        memory: number
+      }
+    }
+  } | null
+  auto_deploy_enabled: boolean
+}
+
 export function DashboardOverview() {
+  const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
+  const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        // Fetch dashboard stats
         const dashboardData = await apiClient.getDashboardData() as DashboardData
         setData(dashboardData)
+
+        // Fetch active repositories
+        try {
+          const repoResponse = await api.getRepositoriesLatestDeployments()
+          setRepositories(repoResponse.repositories?.slice(0, 4) || [])
+        } catch (repoError) {
+          console.error('Failed to fetch repositories:', repoError)
+          setRepositories([])
+        }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
         // Fallback to mock data if API fails
@@ -47,29 +81,6 @@ export function DashboardOverview() {
           activeDeployments: 8,
           cpuUsage: 68,
           memoryUsage: 45,
-          recentDeployments: [
-            {
-              name: "frontend-app",
-              version: "v2.1.0",
-              status: "success",
-              time: "2 minutes ago",
-              message: "Deployed 2 minutes ago"
-            },
-            {
-              name: "api-service",
-              version: "v1.8.3",
-              status: "in-progress",
-              time: "5 minutes ago",
-              message: "Deploying for 5 minutes"
-            },
-            {
-              name: "database-migration",
-              version: "",
-              status: "failed",
-              time: "1 hour ago",
-              message: "Failed 1 hour ago"
-            }
-          ],
           systemHealth: [
             { service: "NCP Connection", status: "healthy" },
             { service: "Kubernetes API", status: "healthy" },
@@ -155,65 +166,97 @@ export function DashboardOverview() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
+      {/* Active Deployments & System Health */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Deployments</CardTitle>
-            <CardDescription>Latest deployment activities</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Active Deployments</CardTitle>
+              <CardDescription>Latest repository workloads</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/deployments')}
+            >
+              View All
+            </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {data.recentDeployments.map((deployment, index) => {
-              const getIcon = () => {
-                switch (deployment.status) {
-                  case 'success':
-                    return <CheckCircle className="w-4 h-4 text-green-500" />
-                  case 'in-progress':
-                    return <Clock className="w-4 h-4 text-yellow-500" />
-                  case 'failed':
-                    return <AlertTriangle className="w-4 h-4 text-red-500" />
-                  default:
-                    return <Clock className="w-4 h-4 text-gray-500" />
-                }
-              }
+          <CardContent className="space-y-3">
+            {repositories.length > 0 ? (
+              repositories.map((repo) => {
+                const getStatusBadge = (status: string | undefined) => {
+                  if (!status) {
+                    return <Badge variant="outline" className="text-xs">No Deploy</Badge>
+                  }
 
-              const getBadgeVariant = () => {
-                switch (deployment.status) {
-                  case 'success':
-                    return 'secondary'
-                  case 'in-progress':
-                    return 'outline'
-                  case 'failed':
-                    return 'destructive'
-                  default:
-                    return 'outline'
+                  switch (status) {
+                    case "success":
+                      return (
+                        <Badge className="bg-green-500 text-xs">
+                          <CheckCircle className="mr-1 h-2 w-2" />
+                          Running
+                        </Badge>
+                      )
+                    case "running":
+                      return (
+                        <Badge className="bg-blue-500 text-xs">
+                          <Clock className="mr-1 h-2 w-2" />
+                          Deploying
+                        </Badge>
+                      )
+                    case "failed":
+                      return (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertTriangle className="mr-1 h-2 w-2" />
+                          Failed
+                        </Badge>
+                      )
+                    default:
+                      return <Badge variant="outline" className="text-xs">{status}</Badge>
+                  }
                 }
-              }
 
-              const getBadgeText = () => {
-                switch (deployment.status) {
-                  case 'success':
-                    return 'Success'
-                  case 'in-progress':
-                    return 'In Progress'
-                  case 'failed':
-                    return 'Failed'
-                  default:
-                    return 'Unknown'
-                }
-              }
-
-              return (
-                <div key={index} className="flex items-center space-x-4">
-                  {getIcon()}
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{deployment.name}{deployment.version ? ` ${deployment.version}` : ''}</p>
-                    <p className="text-xs text-muted-foreground">{deployment.message}</p>
+                return (
+                  <div
+                    key={repo.full_name}
+                    className="flex items-start justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => router.push('/deployments')}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Github className="h-3 w-3 shrink-0" />
+                        <p className="text-sm font-medium truncate">{repo.full_name}</p>
+                      </div>
+                      {repo.latest_deployment ? (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="font-mono">
+                            {repo.latest_deployment.image.tag}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {repo.latest_deployment.cluster.replicas.ready}/
+                            {repo.latest_deployment.cluster.replicas.desired} replicas
+                          </span>
+                          <span>•</span>
+                          <span>CPU {repo.latest_deployment.cluster.resources.cpu}%</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No deployments</p>
+                      )}
+                    </div>
+                    <div className="ml-2 shrink-0">
+                      {getStatusBadge(repo.latest_deployment?.status)}
+                    </div>
                   </div>
-                  <Badge variant={getBadgeVariant()}>{getBadgeText()}</Badge>
-                </div>
-              )
-            })}
+                )
+              })
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Server className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No active deployments</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

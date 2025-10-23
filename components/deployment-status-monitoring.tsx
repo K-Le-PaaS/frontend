@@ -1,12 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   GitBranch,
   Play,
@@ -20,417 +27,502 @@ import {
   Server,
   Cpu,
   HardDrive,
+  RefreshCw,
+  Github,
+  Activity,
+  ExternalLink,
 } from "lucide-react"
+import { api } from "@/lib/api"
 
-interface Deployment {
-  id: string
-  name: string
-  namespace: string
-  status: "running" | "pending" | "failed" | "stopped"
-  replicas: {
-    desired: number
-    ready: number
-    available: number
-  }
-  image: string
-  version: string
-  createdAt: Date
-  lastUpdated: Date
-  resources: {
-    cpu: number
-    memory: number
-  }
+interface RepositoryWorkload {
+  owner: string
+  repo: string
+  full_name: string
+  branch: string
+  latest_deployment: {
+    id: number
+    status: "running" | "success" | "failed"
+    image: {
+      name: string
+      tag: string
+      url: string
+    }
+    commit: {
+      sha: string
+      short_sha: string
+      message: string
+      author: string
+      url: string
+    }
+    cluster: {
+      namespace: string
+      replicas: {
+        desired: number
+        ready: number
+      }
+      resources: {
+        cpu: number
+        memory: number
+      }
+    }
+    timing: {
+      started_at: string
+      completed_at: string
+      total_duration: number
+    }
+  } | null
+  auto_deploy_enabled: boolean
 }
-
-interface Pod {
-  id: string
-  name: string
-  status: "running" | "pending" | "failed" | "terminating"
-  node: string
-  restarts: number
-  age: string
-  resources: {
-    cpu: number
-    memory: number
-  }
-}
-
-const mockDeployments: Deployment[] = [
-  {
-    id: "1",
-    name: "frontend-app",
-    namespace: "production",
-    status: "running",
-    replicas: { desired: 3, ready: 3, available: 3 },
-    image: "frontend-app",
-    version: "v2.1.0",
-    createdAt: new Date(Date.now() - 86400000),
-    lastUpdated: new Date(Date.now() - 300000),
-    resources: { cpu: 45, memory: 62 },
-  },
-  {
-    id: "2",
-    name: "api-service",
-    namespace: "production",
-    status: "pending",
-    replicas: { desired: 5, ready: 3, available: 3 },
-    image: "api-service",
-    version: "v1.8.3",
-    createdAt: new Date(Date.now() - 43200000),
-    lastUpdated: new Date(Date.now() - 600000),
-    resources: { cpu: 78, memory: 85 },
-  },
-  {
-    id: "3",
-    name: "database-migration",
-    namespace: "staging",
-    status: "failed",
-    replicas: { desired: 1, ready: 0, available: 0 },
-    image: "db-migrator",
-    version: "v0.5.2",
-    createdAt: new Date(Date.now() - 3600000),
-    lastUpdated: new Date(Date.now() - 3600000),
-    resources: { cpu: 0, memory: 0 },
-  },
-]
-
-const mockPods: Pod[] = [
-  {
-    id: "1",
-    name: "frontend-app-7d4b8c9f5-abc12",
-    status: "running",
-    node: "node-1",
-    restarts: 0,
-    age: "2d",
-    resources: { cpu: 15, memory: 20 },
-  },
-  {
-    id: "2",
-    name: "frontend-app-7d4b8c9f5-def34",
-    status: "running",
-    node: "node-2",
-    restarts: 1,
-    age: "2d",
-    resources: { cpu: 15, memory: 21 },
-  },
-  {
-    id: "3",
-    name: "api-service-9f8e7d6c5-ghi56",
-    status: "pending",
-    node: "node-3",
-    restarts: 0,
-    age: "5m",
-    resources: { cpu: 0, memory: 0 },
-  },
-]
 
 export function DeploymentStatusMonitoring() {
-  const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null)
+  const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
-  const getStatusIcon = (status: Deployment["status"]) => {
-    switch (status) {
-      case "running":
-        return <CheckCircle className="w-4 h-4 text-green-500" />
-      case "pending":
-        return <Clock className="w-4 h-4 text-yellow-500 animate-pulse" />
-      case "failed":
-        return <AlertTriangle className="w-4 h-4 text-red-500" />
-      case "stopped":
-        return <Pause className="w-4 h-4 text-gray-500" />
+  const fetchRepositories = async () => {
+    try {
+      setLoading(true)
+      const response = await api.getRepositoriesLatestDeployments()
+      setRepositories(response.repositories)
+    } catch (error) {
+      console.error("Failed to fetch repositories:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const getStatusBadge = (status: Deployment["status"]) => {
+  useEffect(() => {
+    fetchRepositories()
+    // Poll every 30 seconds
+    const interval = setInterval(fetchRepositories, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const getStatusBadge = (status: string | undefined) => {
+    if (!status) {
+      return <Badge variant="outline">No Deployments</Badge>
+    }
+
     switch (status) {
-      case "running":
-        return <Badge className="bg-green-100 text-green-800">Running</Badge>
-      case "pending":
+      case "success":
         return (
-          <Badge variant="outline" className="text-yellow-600 border-yellow-200">
-            Pending
+          <Badge className="bg-green-500">
+            <CheckCircle className="mr-1 h-3 w-3" />
+            Running
+          </Badge>
+        )
+      case "running":
+        return (
+          <Badge className="bg-blue-500">
+            <Clock className="mr-1 h-3 w-3" />
+            Deploying
           </Badge>
         )
       case "failed":
-        return <Badge variant="destructive">Failed</Badge>
-      case "stopped":
-        return <Badge variant="secondary">Stopped</Badge>
+        return (
+          <Badge variant="destructive">
+            <AlertTriangle className="mr-1 h-3 w-3" />
+            Failed
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
-  const getPodStatusBadge = (status: Pod["status"]) => {
-    switch (status) {
-      case "running":
-        return <Badge className="bg-green-100 text-green-800">Running</Badge>
-      case "pending":
-        return (
-          <Badge variant="outline" className="text-yellow-600 border-yellow-200">
-            Pending
-          </Badge>
-        )
-      case "failed":
-        return <Badge variant="destructive">Failed</Badge>
-      case "terminating":
-        return <Badge variant="secondary">Terminating</Badge>
-    }
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+
+    if (diffMins < 1) return "Just now"
+    if (diffMins < 60) return `${diffMins}m ago`
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours < 24) return `${diffHours}h ago`
+    const diffDays = Math.floor(diffHours / 24)
+    return `${diffDays}d ago`
+  }
+
+  const handleViewDetails = (repo: RepositoryWorkload) => {
+    setSelectedRepo(repo)
+    setDetailsOpen(true)
   }
 
   return (
-    <div className="space-y-6">
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Deployments</CardTitle>
-            <GitBranch className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{mockDeployments.length}</div>
-            <p className="text-xs text-muted-foreground">Across all namespaces</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Running</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {mockDeployments.filter((d) => d.status === "running").length}
-            </div>
-            <p className="text-xs text-muted-foreground">Healthy deployments</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {mockDeployments.filter((d) => d.status === "pending").length}
-            </div>
-            <p className="text-xs text-muted-foreground">In progress</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Failed</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {mockDeployments.filter((d) => d.status === "failed").length}
-            </div>
-            <p className="text-xs text-muted-foreground">Need attention</p>
-          </CardContent>
-        </Card>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Deployments</h2>
+          <p className="text-muted-foreground">
+            Kubernetes workload operations by repository
+          </p>
+        </div>
+        <Button onClick={fetchRepositories} disabled={loading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
-      {/* Deployments List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Deployments</CardTitle>
-          <CardDescription>Monitor and manage your Kubernetes deployments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {mockDeployments.map((deployment) => (
-              <div key={deployment.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    {getStatusIcon(deployment.status)}
-                    <div>
-                      <h3 className="font-semibold">{deployment.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {deployment.namespace} • {deployment.image}:{deployment.version}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getStatusBadge(deployment.status)}
-                    <Button variant="outline" size="sm" onClick={() => setSelectedDeployment(deployment)}>
-                      <Eye className="w-4 h-4 mr-1" />
-                      Details
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm font-medium mb-1">Replicas</p>
-                    <div className="flex items-center space-x-2">
-                      <Progress
-                        value={(deployment.replicas.ready / deployment.replicas.desired) * 100}
-                        className="flex-1"
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {deployment.replicas.ready}/{deployment.replicas.desired}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium mb-1">CPU Usage</p>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={deployment.resources.cpu} className="flex-1" />
-                      <span className="text-sm text-muted-foreground">{deployment.resources.cpu}%</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium mb-1">Memory Usage</p>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={deployment.resources.memory} className="flex-1" />
-                      <span className="text-sm text-muted-foreground">{deployment.resources.memory}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                  <div className="text-sm text-muted-foreground">Updated {deployment.lastUpdated.toLocaleString()}</div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Scale className="w-4 h-4 mr-1" />
-                      Scale
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <RotateCcw className="w-4 h-4 mr-1" />
-                      Rollback
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Play className="w-4 h-4 mr-1" />
-                      Restart
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Detailed View Modal/Panel */}
-      {selectedDeployment && (
+      {loading && repositories.length === 0 ? (
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center space-x-2">
-                {getStatusIcon(selectedDeployment.status)}
-                <span>{selectedDeployment.name}</span>
-              </CardTitle>
-              <Button variant="outline" onClick={() => setSelectedDeployment(null)}>
-                Close
-              </Button>
-            </div>
-            <CardDescription>
-              Detailed monitoring for {selectedDeployment.name} in {selectedDeployment.namespace}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="pods" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="pods">Pods</TabsTrigger>
-                <TabsTrigger value="events">Events</TabsTrigger>
-                <TabsTrigger value="logs">Logs</TabsTrigger>
-                <TabsTrigger value="metrics">Metrics</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="pods" className="space-y-4">
-                <div className="space-y-3">
-                  {mockPods
-                    .filter((pod) => pod.name.startsWith(selectedDeployment.name))
-                    .map((pod) => (
-                      <div key={pod.id} className="border rounded p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <Server className="w-4 h-4" />
-                            <span className="font-medium text-sm">{pod.name}</span>
-                          </div>
-                          {getPodStatusBadge(pod.status)}
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Node:</span> {pod.node}
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Age:</span> {pod.age}
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Restarts:</span> {pod.restarts}
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">CPU:</span> {pod.resources.cpu}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="events" className="space-y-4">
-                <ScrollArea className="h-64">
-                  <div className="space-y-2">
-                    <div className="text-sm p-2 bg-muted rounded">
-                      <span className="text-muted-foreground">2 minutes ago:</span> Scaled deployment to 3 replicas
-                    </div>
-                    <div className="text-sm p-2 bg-muted rounded">
-                      <span className="text-muted-foreground">5 minutes ago:</span> Successfully pulled image
-                    </div>
-                    <div className="text-sm p-2 bg-muted rounded">
-                      <span className="text-muted-foreground">10 minutes ago:</span> Created pod
-                      frontend-app-7d4b8c9f5-abc12
-                    </div>
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="logs" className="space-y-4">
-                <ScrollArea className="h-64">
-                  <div className="font-mono text-sm space-y-1 bg-muted p-3 rounded">
-                    <div>2024-01-15 10:30:15 INFO Starting application...</div>
-                    <div>2024-01-15 10:30:16 INFO Connected to database</div>
-                    <div>2024-01-15 10:30:17 INFO Server listening on port 3000</div>
-                    <div>2024-01-15 10:30:18 INFO Health check endpoint ready</div>
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="metrics" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center">
-                        <Cpu className="w-4 h-4 mr-2" />
-                        CPU Usage
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{selectedDeployment.resources.cpu}%</div>
-                      <Progress value={selectedDeployment.resources.cpu} className="mt-2" />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center">
-                        <HardDrive className="w-4 h-4 mr-2" />
-                        Memory Usage
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{selectedDeployment.resources.memory}%</div>
-                      <Progress value={selectedDeployment.resources.memory} className="mt-2" />
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-            </Tabs>
+          <CardContent className="flex items-center justify-center py-12">
+            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
           </CardContent>
         </Card>
+      ) : repositories.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Server className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No repositories connected</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {repositories.map((repo) => (
+            <Card key={repo.full_name} className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Github className="h-4 w-4" />
+                      {repo.full_name}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-1 mt-1">
+                      <GitBranch className="h-3 w-3" />
+                      {repo.branch}
+                    </CardDescription>
+                  </div>
+                  {getStatusBadge(repo.latest_deployment?.status)}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {repo.latest_deployment ? (
+                  <>
+                    {/* Domain URL - Prominent Section */}
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-950/30 dark:to-transparent border-l-4 border-blue-500 rounded-md group">
+                      <a
+                        href={`https://${repo.repo}.klepaas.com`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 flex-1 min-w-0"
+                      >
+                        <Server className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate group-hover:underline">
+                          https://{repo.repo}.klepaas.com
+                        </span>
+                        <ExternalLink className="h-3 w-3 text-blue-600 dark:text-blue-400 opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+                      </a>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0 h-8 px-3 text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/30"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(`https://${repo.repo}.klepaas.com`)
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+
+                    {/* Image Info */}
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Image</p>
+                      <p className="font-mono text-sm truncate">
+                        {repo.latest_deployment.image.name}:{repo.latest_deployment.image.tag}
+                      </p>
+                    </div>
+
+                    {/* Deployment Info */}
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                            <Server className="h-3 w-3" />
+                            Replicas
+                          </div>
+                          <p className="text-sm font-semibold">
+                            {repo.latest_deployment.cluster.replicas.ready}/
+                            {repo.latest_deployment.cluster.replicas.desired}
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {repo.latest_deployment.cluster.replicas.ready ===
+                              repo.latest_deployment.cluster.replicas.desired
+                                ? "• All Ready"
+                                : "• Scaling"}
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                            <GitBranch className="h-3 w-3" />
+                            Last Commit
+                          </div>
+                          <p className="text-sm font-medium truncate">
+                            {repo.latest_deployment.commit.message || "Initial deployment"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                            <Github className="h-3 w-3" />
+                            Author
+                          </div>
+                          <p className="text-sm font-medium">
+                            {repo.latest_deployment.commit.author || "System"} •{" "}
+                            {formatTime(repo.latest_deployment.timing.started_at)}
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                            <Clock className="h-3 w-3" />
+                            Build Time
+                          </div>
+                          <p className="text-sm font-medium">
+                            {repo.latest_deployment.timing.total_duration
+                              ? `${repo.latest_deployment.timing.total_duration}s`
+                              : "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button size="default" variant="outline" className="flex-1">
+                        <Scale className="mr-2 h-4 w-4" />
+                        Scale
+                      </Button>
+                      <Button size="default" variant="outline" className="flex-1">
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Rollback
+                      </Button>
+                      <Button size="default" variant="outline" className="flex-1">
+                        <Play className="mr-2 h-4 w-4" />
+                        Restart
+                      </Button>
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleViewDetails(repo)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Details
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Server className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No deployments yet</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
+
+      {/* Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Github className="h-5 w-5" />
+              {selectedRepo?.full_name}
+            </DialogTitle>
+            <DialogDescription>
+              Deployment configuration and status
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedRepo?.latest_deployment && (
+            <Tabs defaultValue="status" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="status">Quick Status</TabsTrigger>
+                <TabsTrigger value="config">Configuration</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="status" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Deployment Status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <div className="mt-1">
+                          {getStatusBadge(selectedRepo.latest_deployment.status)}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Namespace</p>
+                        <p className="mt-1 font-medium">
+                          {selectedRepo.latest_deployment.cluster.namespace}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Replicas</p>
+                        <p className="mt-1 font-medium">
+                          {selectedRepo.latest_deployment.cluster.replicas.ready} /{" "}
+                          {selectedRepo.latest_deployment.cluster.replicas.desired}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Duration</p>
+                        <p className="mt-1 font-medium">
+                          {selectedRepo.latest_deployment.timing.total_duration}s
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Resources</p>
+                      <div className="space-y-2">
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>CPU Usage</span>
+                            <span className="font-medium">
+                              {selectedRepo.latest_deployment.cluster.resources.cpu}%
+                            </span>
+                          </div>
+                          <Progress
+                            value={selectedRepo.latest_deployment.cluster.resources.cpu}
+                          />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Memory Usage</span>
+                            <span className="font-medium">
+                              {selectedRepo.latest_deployment.cluster.resources.memory}%
+                            </span>
+                          </div>
+                          <Progress
+                            value={selectedRepo.latest_deployment.cluster.resources.memory}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <Button variant="outline" className="flex-1">
+                        <Activity className="mr-2 h-4 w-4" />
+                        View Monitoring
+                      </Button>
+                      <Button variant="outline" className="flex-1">
+                        <Github className="mr-2 h-4 w-4" />
+                        View CI/CD History
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="config" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Image Configuration</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Image</p>
+                      <p className="mt-1 font-mono text-sm">
+                        {selectedRepo.latest_deployment.image.name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tag</p>
+                      <p className="mt-1 font-mono text-sm">
+                        {selectedRepo.latest_deployment.image.tag}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Image URL</p>
+                      <a
+                        href={selectedRepo.latest_deployment.image.url || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 font-mono text-sm text-blue-500 hover:underline flex items-center gap-1"
+                      >
+                        {selectedRepo.latest_deployment.image.url || "N/A"}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Commit Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Commit SHA</p>
+                      <p className="mt-1 font-mono text-sm">
+                        {selectedRepo.latest_deployment.commit.sha}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Message</p>
+                      <p className="mt-1 text-sm">
+                        {selectedRepo.latest_deployment.commit.message}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Author</p>
+                      <p className="mt-1 text-sm">
+                        {selectedRepo.latest_deployment.commit.author}
+                      </p>
+                    </div>
+                    <div>
+                      <a
+                        href={selectedRepo.latest_deployment.commit.url || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-500 hover:underline flex items-center gap-1"
+                      >
+                        View on GitHub
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Cluster Configuration</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Namespace</p>
+                      <p className="mt-1 font-mono text-sm">
+                        {selectedRepo.latest_deployment.cluster.namespace}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Auto Deploy</p>
+                      <Badge variant={selectedRepo.auto_deploy_enabled ? "default" : "outline"}>
+                        {selectedRepo.auto_deploy_enabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {!selectedRepo?.latest_deployment && (
+            <div className="text-center py-8 text-muted-foreground">
+              No deployment information available
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
