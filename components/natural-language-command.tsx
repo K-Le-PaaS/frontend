@@ -62,7 +62,11 @@ const suggestedCommands = [
   "nginx deployment 스케일 3개로 늘려줘",
 ]
 
-export function NaturalLanguageCommand() {
+interface NaturalLanguageCommandProps {
+  onNavigateToPipelines?: () => void
+}
+
+export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguageCommandProps = {}) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -368,6 +372,7 @@ export function NaturalLanguageCommand() {
                     setInput(rollbackCommand)
                     inputRef.current?.focus()
                   }}
+                  onNavigateToPipelines={onNavigateToPipelines}
                 />
               </div>
             )}

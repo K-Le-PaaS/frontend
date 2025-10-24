@@ -13,6 +13,7 @@ import { RealTimeMonitoringDashboard } from "@/components/real-time-monitoring-d
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState("dashboard")
+  const [githubInitialTab, setGithubInitialTab] = useState("repositories")
   const { toast } = useToast()
 
   // Show Slack connected toast when redirected with ?slack=connected
@@ -37,11 +38,23 @@ export default function HomePage() {
   const renderContent = () => {
     switch (activeView) {
       case "commands":
-        return <NaturalLanguageCommand />
+        return <NaturalLanguageCommand onNavigateToPipelines={() => {
+          setGithubInitialTab("pipelines")
+          setActiveView("github")
+        }} />
       case "deployments":
-        return <DeploymentStatusMonitoring />
+        return <DeploymentStatusMonitoring 
+          onNavigateToMonitoring={() => setActiveView("monitoring")}
+          onNavigateToPipelines={() => {
+            setGithubInitialTab("pipelines")
+            setActiveView("github")
+          }}
+        />
       case "github":
-        return <GitHubIntegrationPanel />
+        return <GitHubIntegrationPanel 
+          onNavigateToPipelines={() => setActiveView("github")} 
+          initialTab={githubInitialTab}
+        />
       case "monitoring":
         return <RealTimeMonitoringDashboard />
       case "dashboard":

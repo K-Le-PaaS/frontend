@@ -212,6 +212,17 @@ class ApiClient {
     return this.request(`/api/v1/github/webhook/${integrationId}/status`)
   }
 
+  async triggerDeploy(owner: string, repo: string, branch: string = "main") {
+    return this.request('/api/v1/github/manual-deploy', {
+      method: 'POST',
+      body: JSON.stringify({
+        github_owner: owner,
+        github_repo: repo,
+        branch: branch,
+      }),
+    })
+  }
+
   // Deployment Histories endpoints
   async getDeploymentHistories(repository?: string, status?: string, limit: number = 20, offset: number = 0) {
     const params = new URLSearchParams({

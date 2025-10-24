@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api"
 import { useGlobalWebSocket } from "@/hooks/use-global-websocket"
 import { useAuth } from "@/contexts/auth-context"
+import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -185,15 +186,22 @@ interface Pipeline {
   }
 }
 
-export function GitHubIntegrationPanel() {
+interface GitHubIntegrationPanelProps {
+  onNavigateToPipelines?: () => void
+  initialTab?: string
+}
+
+export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "repositories" }: GitHubIntegrationPanelProps = {}) {
   // slackConnected는 DB 조회로 최종 결정
   const [newRepoUrl, setNewRepoUrl] = useState("")
   const [repos, setRepos] = useState<Repository[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState(initialTab)
   
   // 사용자 인증 정보 가져오기
   const { user } = useAuth()
+  const { toast } = useToast()
   console.log("GitHubIntegrationPanel: user object:", user)
   console.log("GitHubIntegrationPanel: user.id:", user?.id)
   console.log("GitHubIntegrationPanel: user.provider:", user?.provider)
@@ -983,15 +991,65 @@ export function GitHubIntegrationPanel() {
     }
   }
 
-  const handleTriggerDeploy = async (repoId: string) => {
+  const handleNavigateToPipelines = () => {
+    setActiveTab("pipelines")
+    if (onNavigateToPipelines) {
+      onNavigateToPipelines()
+    }
+  }
+
+
+  const handleTriggerDeploy = async (repoFullName: string) => {
     try {
-      console.log(`Trigger Deploy requested for repository: ${repoId}`)
-      // TODO: 백엔드에 수동 배포 트리거 API 호출
-      // const response = await apiClient.triggerDeploy(repoId)
-      alert("수동 배포 트리거 기능은 곧 구현될 예정입니다.")
+      console.log(`Trigger Deploy requested for repository: ${repoFullName}`)
+
+      // Parse owner/repo from fullName
+      const [owner, repo] = repoFullName.split('/')
+
+      if (!owner || !repo) {
+        toast({
+          title: "오류",
+          description: "잘못된 저장소 형식입니다.",
+          variant: "destructive",
+          duration: 3000,
+        })
+        return
+      }
+
+      // Show success toast message immediately
+      toast({
+        title: "배포 시작",
+        description: `${owner}/${repo} 배포를 시작했습니다. CI/CD Pipelines 탭에서 진행 상황을 확인하세요.`,
+        duration: 3000,
+      })
+
+      // Switch to CI/CD Pipelines tab immediately
+      setActiveTab("pipelines")
+
+      // Call the backend API in the background
+      try {
+        const response = await apiClient.triggerDeploy(owner, repo, "main")
+        console.log("Trigger Deploy response:", response)
+      } catch (apiError) {
+        console.error("Trigger Deploy failed:", apiError)
+        const errorMessage = apiError instanceof Error ? apiError.message : "배포 트리거에 실패했습니다."
+        toast({
+          title: "배포 실패",
+          description: errorMessage,
+          variant: "destructive",
+          duration: 5000,
+        })
+      }
+
     } catch (error) {
       console.error("Trigger Deploy failed:", error)
-      alert("배포 트리거에 실패했습니다.")
+      const errorMessage = error instanceof Error ? error.message : "배포 트리거에 실패했습니다."
+      toast({
+        title: "배포 실패",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000,
+      })
     }
   }
 
@@ -1059,7 +1117,7 @@ export function GitHubIntegrationPanel() {
         </Card>
       </div>
 
-      <Tabs defaultValue="repositories" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="repositories">Repositories</TabsTrigger>
           <TabsTrigger value="pullrequests">Pull Requests</TabsTrigger>
@@ -1171,7 +1229,7 @@ export function GitHubIntegrationPanel() {
                         <Settings className="w-4 h-4 mr-1" />
                         Configure
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleTriggerDeploy(repo.id)}>
+                      <Button variant="outline" size="sm" onClick={() => handleTriggerDeploy(repo.fullName)}>
                         <Play className="w-4 h-4 mr-1" />
                         Trigger Deploy
                       </Button>
