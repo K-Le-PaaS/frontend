@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye } from "lucide-react"
+import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye, Zap } from "lucide-react"
 import { apiClient, api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
+import { formatTimeAgo } from "@/lib/utils"
 
 interface DashboardData {
   clusters: number
@@ -46,6 +47,11 @@ interface RepositoryWorkload {
         cpu: number
         memory: number
       }
+    }
+    timing: {
+      started_at: string
+      completed_at: string | null
+      total_duration: number | null
     }
   } | null
   auto_deploy_enabled: boolean
@@ -305,7 +311,16 @@ export function DashboardOverview({ onNavigateToDeployments }: DashboardOverview
                             {deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired} replicas
                           </span>
                           <span>•</span>
-                          <span>CPU {repo.latest_deployment.cluster.resources.cpu}%</span>
+                          <span>{formatTimeAgo(repo.latest_deployment.timing.started_at)}</span>
+                          {repo.auto_deploy_enabled && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Zap className="h-3 w-3" />
+                                Auto
+                              </span>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">No deployments</p>
