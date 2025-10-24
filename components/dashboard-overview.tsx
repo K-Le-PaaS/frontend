@@ -56,7 +56,8 @@ export function DashboardOverview() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
-  
+  const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
+
   // 사용자 인증 상태 확인
   const { user, isLoading: authLoading } = useAuth()
 
@@ -70,7 +71,24 @@ export function DashboardOverview() {
         // Fetch active repositories
         try {
           const repoResponse = await api.getRepositoriesLatestDeployments()
-          setRepositories(repoResponse.repositories?.slice(0, 4) || [])
+          const repos = repoResponse.repositories?.slice(0, 4) || []
+          setRepositories(repos)
+
+          // Fetch deployment configs for each repository
+          const configs: Record<string, { replica_count: number }> = {}
+          await Promise.all(
+            repos.map(async (repo) => {
+              try {
+                const config = await api.getDeploymentConfig(repo.owner, repo.repo)
+                configs[repo.full_name] = { replica_count: config.replica_count }
+              } catch (error) {
+                console.error(`Failed to fetch config for ${repo.full_name}:`, error)
+                // Use default replica count if config fetch fails
+                configs[repo.full_name] = { replica_count: 1 }
+              }
+            })
+          )
+          setDeploymentConfigs(configs)
         } catch (repoError) {
           console.error('Failed to fetch repositories:', repoError)
           setRepositories([])
@@ -280,7 +298,7 @@ export function DashboardOverview() {
                           <span>•</span>
                           <span>
                             {repo.latest_deployment.cluster.replicas.ready}/
-                            {repo.latest_deployment.cluster.replicas.desired} replicas
+                            {deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired} replicas
                           </span>
                           <span>•</span>
                           <span>CPU {repo.latest_deployment.cluster.resources.cpu}%</span>

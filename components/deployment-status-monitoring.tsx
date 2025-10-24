@@ -83,21 +83,22 @@ interface DeploymentStatusMonitoringProps {
   onNavigateToPipelines?: () => void
 }
 
-export function DeploymentStatusMonitoring({ 
-  onNavigateToMonitoring, 
-  onNavigateToPipelines 
+export function DeploymentStatusMonitoring({
+  onNavigateToMonitoring,
+  onNavigateToPipelines
 }: DeploymentStatusMonitoringProps = {}) {
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
 
   // Dialog states for Rollback, Scale, Restart
   const [rollbackDialogOpen, setRollbackDialogOpen] = useState(false)
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false)
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
   const [actionRepo, setActionRepo] = useState<RepositoryWorkload | null>(null)
-  
+
   // 사용자 인증 상태 확인
   const { user, isLoading: authLoading } = useAuth()
 
@@ -106,6 +107,22 @@ export function DeploymentStatusMonitoring({
       setLoading(true)
       const response = await api.getRepositoriesLatestDeployments()
       setRepositories(response.repositories)
+
+      // Fetch deployment configs for each repository
+      const configs: Record<string, { replica_count: number }> = {}
+      await Promise.all(
+        response.repositories.map(async (repo: RepositoryWorkload) => {
+          try {
+            const config = await api.getDeploymentConfig(repo.owner, repo.repo)
+            configs[repo.full_name] = { replica_count: config.replica_count }
+          } catch (error) {
+            console.error(`Failed to fetch config for ${repo.full_name}:`, error)
+            // Use default replica count if config fetch fails
+            configs[repo.full_name] = { replica_count: 1 }
+          }
+        })
+      )
+      setDeploymentConfigs(configs)
     } catch (error) {
       console.error("Failed to fetch repositories:", error)
     } finally {
@@ -326,10 +343,10 @@ export function DeploymentStatusMonitoring({
                           </div>
                           <p className="text-sm font-semibold">
                             {repo.latest_deployment.cluster.replicas.ready}/
-                            {repo.latest_deployment.cluster.replicas.desired}
+                            {deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired}
                             <span className="text-xs text-muted-foreground ml-2">
                               {repo.latest_deployment.cluster.replicas.ready ===
-                              repo.latest_deployment.cluster.replicas.desired
+                              (deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired)
                                 ? "• All Ready"
                                 : "• Scaling"}
                             </span>
@@ -466,7 +483,7 @@ export function DeploymentStatusMonitoring({
                         <p className="text-sm text-muted-foreground">Replicas</p>
                         <p className="mt-1 font-medium">
                           {selectedRepo.latest_deployment.cluster.replicas.ready} /{" "}
-                          {selectedRepo.latest_deployment.cluster.replicas.desired}
+                          {deploymentConfigs[selectedRepo.full_name]?.replica_count ?? selectedRepo.latest_deployment.cluster.replicas.desired}
                         </p>
                       </div>
                       <div>
@@ -656,7 +673,7 @@ export function DeploymentStatusMonitoring({
           onOpenChange={setScaleDialogOpen}
           owner={actionRepo.owner}
           repo={actionRepo.repo}
-          currentReplicas={actionRepo.latest_deployment?.cluster.replicas.desired}
+          currentReplicas={deploymentConfigs[actionRepo.full_name]?.replica_count ?? actionRepo.latest_deployment?.cluster.replicas.desired}
           onScaleSuccess={handleActionSuccess}
         />
       )}

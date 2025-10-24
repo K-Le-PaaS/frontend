@@ -447,6 +447,33 @@ class ApiClient {
       }),
     })
   }
+
+  // Deployment Config endpoints
+  async getDeploymentConfig(owner: string, repo: string): Promise<DeploymentConfigResponse> {
+    const userId = this.getCurrentUserId()
+    const userIdParam = userId ? `?user_id=${encodeURIComponent(userId)}` : ''
+    return this.request<DeploymentConfigResponse>(`/api/v1/deployments/${owner}/${repo}/config${userIdParam}`)
+  }
+
+  async updateDeploymentConfig(owner: string, repo: string, replicaCount: number): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request(`/api/v1/deployments/${owner}/${repo}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        replica_count: replicaCount,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  async getScalingHistory(owner: string, repo: string, limit: number = 20): Promise<ScalingHistoryResponse> {
+    const userId = this.getCurrentUserId()
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+    })
+    if (userId) params.append('user_id', userId)
+    return this.request<ScalingHistoryResponse>(`/api/v1/deployments/${owner}/${repo}/scaling-history?${params.toString()}`)
+  }
 }
 
 // Type definitions for Rollback and Scale
@@ -479,6 +506,33 @@ export interface RollbackListResponse {
     rollback_from_id: number | null
   }>
   total_rollbacks: number
+}
+
+// Type definitions for Deployment Config
+export interface DeploymentConfigResponse {
+  owner: string
+  repo: string
+  replica_count: number
+  is_default: boolean
+  last_scaled_at: string | null
+  last_scaled_by: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ScalingHistoryResponse {
+  owner: string
+  repo: string
+  current_replicas: number
+  history: Array<{
+    deployment_id: number
+    replica_count: number
+    deployed_at: string | null
+    commit_sha_short: string | null
+    commit_message: string | null
+    status: string
+  }>
+  total_count: number
 }
 
 export const apiClient = new ApiClient()
