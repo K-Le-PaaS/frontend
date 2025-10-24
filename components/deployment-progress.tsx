@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Clock, Zap, GitBranch, Package, Rocket } from "lucide-react"
+import { formatDuration } from "@/lib/utils"
 
 interface DeploymentProgressProps {
   deploymentId: string | number
@@ -429,7 +430,7 @@ export function DeploymentProgress({
             <div>Completed: {(parseIsoAsUtc(timing.completed_at) || new Date(timing.completed_at)).toLocaleString()}</div>
           )}
           {timing?.total_duration && (
-            <div>Total Duration: {timing.total_duration}s</div>
+            <div>Total Duration: {formatDuration(timing.total_duration)}</div>
           )}
         </div>
       </CardContent>

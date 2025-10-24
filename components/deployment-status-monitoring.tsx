@@ -37,6 +37,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { RollbackDialog } from "@/components/rollback-dialog"
 import { ScaleDialog } from "@/components/scale-dialog"
 import { RestartDialog } from "@/components/restart-dialog"
+import { formatDuration } from "@/lib/utils"
 
 interface RepositoryWorkload {
   owner: string
@@ -380,9 +381,7 @@ export function DeploymentStatusMonitoring({
                             Build Time
                           </div>
                           <p className="text-sm font-medium">
-                            {repo.latest_deployment.timing.total_duration
-                              ? `${repo.latest_deployment.timing.total_duration}s`
-                              : "N/A"}
+                            {formatDuration(repo.latest_deployment.timing.total_duration)}
                           </p>
                         </div>
                       </div>
