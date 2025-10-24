@@ -108,6 +108,13 @@ class ApiClient {
     })
   }
 
+  async adminLogin(credentials: { username: string; password: string }) {
+    return this.request('/api/v1/auth/oauth2/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    })
+  }
+
   async register(userData: { email: string; password: string; name: string }) {
     return this.request('/api/v1/auth/register', {
       method: 'POST',

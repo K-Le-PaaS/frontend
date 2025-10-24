@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Github, Chrome } from "lucide-react"
+import { Github, Chrome, Mail } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { apiClient } from "@/lib/api"
+import { AdminLoginForm } from "@/components/admin-login-form"
 
 type OAuthUrlResponse = { auth_url: string }
 
@@ -17,8 +18,19 @@ interface LoginModalProps {
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
 
   if (!isOpen) return null
+
+  if (showAdminLogin) {
+    return (
+      <AdminLoginForm
+        isOpen={isOpen}
+        onClose={onClose}
+        onBack={() => setShowAdminLogin(false)}
+      />
+    )
+  }
 
   const handleGoogleLogin = async () => {
     setIsLoading(true)
@@ -148,7 +160,17 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             <Github className="w-4 h-4 mr-2" />
             GitHub로 로그인
           </Button>
-          
+
+          <Button
+            onClick={() => setShowAdminLogin(true)}
+            disabled={isLoading}
+            className="w-full"
+            variant="outline"
+          >
+            <Mail className="w-4 h-4 mr-2" />
+            이메일로 로그인
+          </Button>
+
           <Button
             onClick={onClose}
             variant="ghost"

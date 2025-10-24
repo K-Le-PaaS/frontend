@@ -59,7 +59,7 @@ export default function HomePage() {
         return <RealTimeMonitoringDashboard />
       case "dashboard":
       default:
-        return <DashboardOverview />
+        return <DashboardOverview onNavigateToDeployments={() => setActiveView("deployments")} />
     }
   }
 
