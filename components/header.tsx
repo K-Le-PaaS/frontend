@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Bell, Search, User, LogOut, Plus } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { LoginModal } from "@/components/login-modal"
@@ -65,18 +66,19 @@ export function Header() {
 
             {/* User */}
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleUserClick} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleUserClick}
                 className={`flex items-center gap-2 ${!user ? 'border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50' : ''}`}
               >
-                {user?.picture ? (
-                  <img 
-                    src={user.picture} 
-                    alt={user.name} 
-                    className="w-6 h-6 rounded-full"
-                  />
+                {user ? (
+                  <Avatar className="w-6 h-6">
+                    <AvatarImage src={user.picture} alt={user.name} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-[10.5px] font-semibold">
+                      K5s
+                    </AvatarFallback>
+                  </Avatar>
                 ) : (
                   <div className="relative">
                     <User className="w-4 h-4" />
@@ -85,7 +87,7 @@ export function Header() {
                 )}
                 {!user && <span className="text-sm text-muted-foreground">로그인</span>}
               </Button>
-              
+
               {user && (
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="w-4 h-4" />

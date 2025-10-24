@@ -51,7 +51,11 @@ interface RepositoryWorkload {
   auto_deploy_enabled: boolean
 }
 
-export function DashboardOverview() {
+interface DashboardOverviewProps {
+  onNavigateToDeployments?: () => void
+}
+
+export function DashboardOverview({ onNavigateToDeployments }: DashboardOverviewProps) {
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
@@ -239,7 +243,7 @@ export function DashboardOverview() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push('/deployments')}
+              onClick={() => onNavigateToDeployments?.()}
             >
               View All
             </Button>
@@ -283,7 +287,7 @@ export function DashboardOverview() {
                   <div
                     key={repo.full_name}
                     className="flex items-start justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
-                    onClick={() => router.push('/deployments')}
+                    onClick={() => onNavigateToDeployments?.()}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
