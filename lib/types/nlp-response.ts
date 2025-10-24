@@ -20,6 +20,7 @@ export type NLPResponseType =
   | 'endpoint'
   | 'scale'
   | 'deploy'
+  | 'deploy_github_repository'
   | 'restart'
   | 'cost_analysis'
   | 'unknown'
@@ -196,6 +197,17 @@ export interface ScaleMetadata {
 export interface DeployData {
   app_name: string
   environment: string
+  status?: string
+  message?: string
+  repository?: string
+  branch?: string
+  commit?: {
+    sha: string
+    message: string
+    author: string
+    url?: string
+  }
+  deployment_status?: string
   [key: string]: any
 }
 
@@ -442,6 +454,15 @@ export interface DeployResponse extends FormattedResponse {
   metadata: DeployMetadata
 }
 
+export interface DeployGitHubRepositoryResponse extends FormattedResponse {
+  type: 'deploy_github_repository'
+  data: {
+    formatted: DeployData
+    raw?: any
+  }
+  metadata: DeployMetadata
+}
+
 export interface RestartResponse extends FormattedResponse {
   type: 'restart'
   data: {
@@ -494,6 +515,7 @@ export type NLPResponse =
   | EndpointResponse
   | ScaleResponse
   | DeployResponse
+  | DeployGitHubRepositoryResponse
   | RestartResponse
   | CostAnalysisResponse
   | ErrorResponse
