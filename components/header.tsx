@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,19 @@ import { LoginModal } from "@/components/login-modal"
 export function Header() {
   const { user, logout } = useAuth()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+
+  // 다른 컴포넌트에서 로그인 모달을 열 수 있도록 이벤트 리스너 추가
+  useEffect(() => {
+    const handleOpenLoginModal = () => {
+      setIsLoginModalOpen(true)
+    }
+    
+    window.addEventListener('openLoginModal', handleOpenLoginModal)
+    
+    return () => {
+      window.removeEventListener('openLoginModal', handleOpenLoginModal)
+    }
+  }, [])
 
   const handleUserClick = () => {
     if (user) {

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye } from "lucide-react"
 import { apiClient, api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 
 interface DashboardData {
   clusters: number
@@ -55,6 +56,9 @@ export function DashboardOverview() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // 사용자 인증 상태 확인
+  const { user, isLoading: authLoading } = useAuth()
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -112,6 +116,46 @@ export function DashboardOverview() {
             </Card>
           ))}
         </div>
+      </div>
+    )
+  }
+
+  // 사용자 인증 상태 확인
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <span className="ml-4 text-lg">인증 상태 확인 중...</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>대시보드</CardTitle>
+            <CardDescription>
+              대시보드를 확인하려면 먼저 로그인해주세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Server className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground mb-4">
+                대시보드를 확인하려면 로그인이 필요합니다.
+              </p>
+              <Button onClick={() => {
+                // Header의 로그인 버튼과 동일하게 OAuth 로그인 모달 열기
+                const event = new CustomEvent('openLoginModal')
+                window.dispatchEvent(event)
+              }}>
+                로그인
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }

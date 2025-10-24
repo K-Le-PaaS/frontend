@@ -367,8 +367,8 @@ export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguag
                 <NLPResponseRenderer 
                   response={message.result as NLPResponse}
                   onRollbackClick={(version) => {
-                    // 롤백 버튼 클릭 시 자연어 명령 자동 입력
-                    const rollbackCommand = `${version.steps_back}번 전으로 롤백해줘`
+                    // 롤백 버튼 클릭 시 커밋 해시 기반 자연어 명령 자동 입력
+                    const rollbackCommand = `${version.commit}로 롤백해줘`
                     setInput(rollbackCommand)
                     inputRef.current?.focus()
                   }}

@@ -23,8 +23,10 @@ export type NLPResponseType =
   | 'deploy_github_repository'
   | 'restart'
   | 'cost_analysis'
+  | 'rollback_execution'
   | 'unknown'
   | 'error'
+  | 'command_error'
 
 export interface FormattedResponse {
   type: NLPResponseType
@@ -282,6 +284,31 @@ export interface ErrorMetadata {
   has_error: boolean
 }
 
+// 명령어 에러 관련 타입
+export interface CommandErrorData {
+  error_type: string
+  error_message: string
+  solutions?: Array<{
+    title: string
+    description?: string
+    example?: string
+  }>
+  supported_commands?: Array<{
+    category: string
+    name: string
+    example: string
+  }>
+  technical_details?: string
+  [key: string]: any
+}
+
+export interface CommandErrorMetadata {
+  error_type: string
+  timestamp: string
+  command?: string
+  [key: string]: any
+}
+
 // 알 수 없는 명령어 관련 타입
 export interface UnknownData {
   [key: string]: any
@@ -308,7 +335,9 @@ export type ResponseData =
   | RestartData
   | EndpointData
   | CostAnalysisData
+  | RollbackExecutionData
   | ErrorData
+  | CommandErrorData
   | UnknownData
 
 // 타입별 메타데이터 유니온 타입
@@ -323,7 +352,9 @@ export type ResponseMetadata =
   | DeployMetadata
   | RestartMetadata
   | CostAnalysisMetadata
+  | RollbackExecutionMetadata
   | ErrorMetadata
+  | CommandErrorMetadata
   | UnknownMetadata
   | Record<string, any>
 
@@ -481,6 +512,40 @@ export interface CostAnalysisResponse extends FormattedResponse {
   metadata: CostAnalysisMetadata
 }
 
+// 롤백 실행 관련 타입
+export interface RollbackExecutionData {
+  action_type: string
+  action_description: string
+  project: string
+  target_commit: string
+  status: string
+  timestamp: string
+  details: {
+    owner: string
+    repo: string
+    target_commit_full: string
+    action: string
+    status: string
+  }
+}
+
+export interface RollbackExecutionMetadata {
+  owner: string
+  repo: string
+  action_type: string
+  target_commit: string
+  status: string
+}
+
+export interface RollbackExecutionResponse extends FormattedResponse {
+  type: 'rollback_execution'
+  data: {
+    formatted: RollbackExecutionData
+    raw?: any
+  }
+  metadata: RollbackExecutionMetadata
+}
+
 export interface ErrorResponse extends FormattedResponse {
   type: 'error'
   data: {
@@ -488,6 +553,15 @@ export interface ErrorResponse extends FormattedResponse {
     raw?: any
   }
   metadata: ErrorMetadata
+}
+
+export interface CommandErrorResponse extends FormattedResponse {
+  type: 'command_error'
+  data: {
+    formatted: CommandErrorData
+    raw?: any
+  }
+  metadata: CommandErrorMetadata
 }
 
 export interface UnknownResponse extends FormattedResponse {
@@ -518,5 +592,7 @@ export type NLPResponse =
   | DeployGitHubRepositoryResponse
   | RestartResponse
   | CostAnalysisResponse
+  | RollbackExecutionResponse
   | ErrorResponse
+  | CommandErrorResponse
   | UnknownResponse

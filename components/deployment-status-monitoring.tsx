@@ -33,6 +33,7 @@ import {
   ExternalLink,
 } from "lucide-react"
 import { api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 
 interface RepositoryWorkload {
   owner: string
@@ -87,6 +88,9 @@ export function DeploymentStatusMonitoring({
   const [loading, setLoading] = useState(true)
   const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  
+  // 사용자 인증 상태 확인
+  const { user, isLoading: authLoading } = useAuth()
 
   const fetchRepositories = async () => {
     try {
@@ -156,6 +160,46 @@ export function DeploymentStatusMonitoring({
   const handleViewDetails = (repo: RepositoryWorkload) => {
     setSelectedRepo(repo)
     setDetailsOpen(true)
+  }
+
+  // 사용자 인증 상태 확인
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <span className="ml-4 text-lg">인증 상태 확인 중...</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>배포 상태 모니터링</CardTitle>
+            <CardDescription>
+              배포 상태를 확인하려면 먼저 로그인해주세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Server className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground mb-4">
+                배포 상태를 모니터링하려면 로그인이 필요합니다.
+              </p>
+                     <Button onClick={() => {
+                       // Header의 로그인 버튼과 동일하게 OAuth 로그인 모달 열기
+                       const event = new CustomEvent('openLoginModal')
+                       window.dispatchEvent(event)
+                     }}>
+                       로그인
+                     </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

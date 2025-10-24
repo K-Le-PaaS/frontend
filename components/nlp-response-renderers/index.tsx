@@ -24,6 +24,8 @@ import { DeployResponseRenderer } from "./DeployResponseRenderer"
 // import { RestartRenderer } from "./RestartRenderer"
 // import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 // import { ErrorRenderer } from "./ErrorRenderer"
+import { CommandErrorRenderer } from "./CommandErrorRenderer"
+import { RollbackExecutionRenderer } from "./RollbackExecutionRenderer"
 // import { UnknownRenderer } from "./UnknownRenderer"
 
 interface NLPResponseRendererProps {
@@ -55,6 +57,16 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
         )}
       </div>
     )
+  }
+
+  // 명령어 에러 응답 처리
+  if (response.type === 'command_error') {
+    return <CommandErrorRenderer response={response as CommandErrorResponse} />
+  }
+
+  // 롤백 실행 응답 처리
+  if (response.type === 'rollback_execution') {
+    return <RollbackExecutionRenderer response={response as RollbackExecutionResponse} />
   }
 
   // 알 수 없는 응답 처리

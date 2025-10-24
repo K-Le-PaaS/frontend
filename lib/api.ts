@@ -7,11 +7,38 @@ class ApiClient {
     this.baseURL = baseURL
   }
 
+  // Get current user ID from localStorage
+  private getCurrentUserId(): string | null {
+    try {
+      const savedUser = localStorage.getItem('user')
+      if (savedUser) {
+        const user = JSON.parse(savedUser)
+        // provider_id를 우선 사용하고, 없으면 id 사용
+        return user.provider_id || user.id
+      }
+    } catch (error) {
+      console.error('Failed to get current user ID:', error)
+    }
+    return null
+  }
+
+  // Add user_id to query parameters
+  private addUserFilter(url: string): string {
+    const userId = this.getCurrentUserId()
+    if (!userId) return url
+    
+    const separator = url.includes('?') ? '&' : '?'
+    return `${url}${separator}user_id=${encodeURIComponent(userId)}`
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`
+    // Add user_id filter to GET requests
+    const url = options.method === 'GET' || !options.method 
+      ? this.addUserFilter(`${this.baseURL}${endpoint}`)
+      : `${this.baseURL}${endpoint}`
     
     const config: RequestInit = {
       headers: {
@@ -30,6 +57,21 @@ class ApiClient {
       config.headers = {
         ...config.headers,
         'Authorization': `Bearer ${token}`,
+      }
+    }
+
+    // Add user_id to POST/PUT/DELETE requests body
+    if (options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method) && options.body) {
+      try {
+        const body = JSON.parse(options.body as string)
+        const userId = this.getCurrentUserId()
+        if (userId) {
+          body.user_id = userId
+          config.body = JSON.stringify(body)
+        }
+      } catch (error) {
+        // If body is not JSON, skip user_id addition
+        console.warn('Could not add user_id to request body:', error)
       }
     }
 
@@ -85,6 +127,7 @@ class ApiClient {
 
   // Dashboard endpoints
   async getDashboardData() {
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request('/api/v1/dashboard/overview')
   }
 
@@ -170,16 +213,19 @@ class ApiClient {
   // Project integrations
   async getProjectIntegrations() {
     const ts = Date.now()
-    return this.request(`/api/v1/projects/integrations?t=${ts}`)
+    // user_id는 request 메서드에서 자동으로 추가됨
+    return this.request(`/api/v1/github/repositories/connected?t=${ts}`)
   }
 
   async connectRepository(repoUrl: string, projectId: string, repoName: string) {
+    const userId = this.getCurrentUserId()
     return this.request('/api/v1/projects/github/connect', {
       method: 'POST',
       body: JSON.stringify({
         repo_url: repoUrl,
         project_id: projectId,
         repo_name: repoName,
+        user_id: userId, // 명시적으로 user_id 추가
       }),
     })
   }
@@ -190,6 +236,8 @@ class ApiClient {
     if (repository && repository !== "all") {
       params.append("repository", repository)
     }
+    
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/github/pull-requests?${params.toString()}`)
   }
 
@@ -199,26 +247,38 @@ class ApiClient {
     if (repository && repository !== "all") {
       params.append("repository", repository)
     }
+    
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/github/pipelines?${params.toString()}`)
   }
 
   async updateWebhookConfig(integrationId: number, enabled: boolean) {
-    return this.request(`/api/v1/github/webhook/${integrationId}?enabled=${enabled}`, {
+    const userId = this.getCurrentUserId()
+    const url = userId 
+      ? `/api/v1/github/webhook/${integrationId}?enabled=${enabled}&user_id=${encodeURIComponent(userId)}`
+      : `/api/v1/github/webhook/${integrationId}?enabled=${enabled}`
+    return this.request(url, {
       method: 'PUT',
     })
   }
 
   async getWebhookStatus(integrationId: number) {
-    return this.request(`/api/v1/github/webhook/${integrationId}/status`)
+    const userId = this.getCurrentUserId()
+    const url = userId 
+      ? `/api/v1/github/webhook/${integrationId}/status?user_id=${encodeURIComponent(userId)}`
+      : `/api/v1/github/webhook/${integrationId}/status`
+    return this.request(url)
   }
 
   async triggerDeploy(owner: string, repo: string, branch: string = "main") {
+    const userId = this.getCurrentUserId()
     return this.request('/api/v1/github/manual-deploy', {
       method: 'POST',
       body: JSON.stringify({
         github_owner: owner,
         github_repo: repo,
         branch: branch,
+        user_id: userId, // 명시적으로 user_id 추가
       }),
     })
   }
@@ -233,6 +293,7 @@ class ApiClient {
     if (repository) params.append('repository', repository)
     if (status) params.append('status', status)
     
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/deployment-histories?${params.toString()}`)
   }
 
@@ -265,6 +326,7 @@ class ApiClient {
 
   async getRepositoriesLatestDeployments(): Promise<{ repositories: any[] }> {
     const ts = Date.now()
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/deployment-histories/repositories/latest?t=${ts}`)
   }
 
