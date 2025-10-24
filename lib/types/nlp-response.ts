@@ -277,6 +277,7 @@ export interface OverviewMetadata {
 export interface ErrorData {
   error: string
   command: string
+  error_message?: string
 }
 
 export interface ErrorMetadata {

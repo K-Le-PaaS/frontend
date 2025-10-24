@@ -14,16 +14,19 @@ import {
   XCircle,
   Info
 } from "lucide-react"
-import { ErrorResponse } from "@/lib/types/nlp-response"
+import { ErrorResponse, CommandErrorResponse } from "@/lib/types/nlp-response"
 import { cn } from "@/lib/utils"
 
 interface ErrorRendererProps {
-  response: ErrorResponse
+  response: ErrorResponse | CommandErrorResponse
 }
 
 export function ErrorRenderer({ response }: ErrorRendererProps) {
   const { data, metadata } = response
   const errorData = data.formatted || {}
+  
+  // CommandErrorResponse인지 확인
+  const isCommandError = response.type === 'command_error'
   
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -61,7 +64,7 @@ export function ErrorRenderer({ response }: ErrorRendererProps) {
     }
   }
 
-  const errorType = errorData.error_type || "system"
+  const errorType = (errorData as any).error_type || "system"
   const severity = getErrorSeverity(errorType)
   const icon = getErrorIcon(errorType)
 
@@ -104,14 +107,14 @@ export function ErrorRenderer({ response }: ErrorRendererProps) {
             <span className="font-medium text-red-800 dark:text-red-200">오류 내용</span>
           </div>
           <p className="text-sm text-red-700 dark:text-red-300">
-            {errorData.error_message || "알 수 없는 오류가 발생했습니다."}
+            {isCommandError ? (errorData as any).error_message : (errorData as any).error || "알 수 없는 오류가 발생했습니다."}
           </p>
         </div>
 
         <Separator className="my-4" />
 
         {/* 해결 방법 */}
-        {errorData.solutions && errorData.solutions.length > 0 && (
+        {isCommandError && (errorData as any).solutions && (errorData as any).solutions.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle className="w-4 h-4 text-green-500" />
@@ -119,7 +122,7 @@ export function ErrorRenderer({ response }: ErrorRendererProps) {
             </div>
             
             <div className="space-y-2">
-              {errorData.solutions.map((solution: any, index: number) => (
+              {(errorData as any).solutions.map((solution: any, index: number) => (
                 <div key={index} className="flex items-start gap-2 p-2 bg-green-50 dark:bg-green-950/20 rounded">
                   <div className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mt-0.5">
                     <span className="text-xs font-medium text-green-800 dark:text-green-200">
@@ -148,7 +151,7 @@ export function ErrorRenderer({ response }: ErrorRendererProps) {
         )}
 
         {/* 지원되는 명령어 */}
-        {errorData.supported_commands && errorData.supported_commands.length > 0 && (
+        {isCommandError && (errorData as any).supported_commands && (errorData as any).supported_commands.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-3">
               <Info className="w-4 h-4 text-blue-500" />
@@ -156,7 +159,7 @@ export function ErrorRenderer({ response }: ErrorRendererProps) {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {errorData.supported_commands.map((command: any, index: number) => (
+              {(errorData as any).supported_commands.map((command: any, index: number) => (
                 <div key={index} className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded border">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="outline" className="text-xs">
@@ -178,7 +181,7 @@ export function ErrorRenderer({ response }: ErrorRendererProps) {
         )}
 
         {/* 상세 오류 정보 */}
-        {errorData.technical_details && (
+        {isCommandError && (errorData as any).technical_details && (
           <div>
             <details className="group">
               <summary className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
@@ -187,7 +190,7 @@ export function ErrorRenderer({ response }: ErrorRendererProps) {
               </summary>
               <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-900/50 rounded border">
                 <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto">
-                  {errorData.technical_details}
+                  {(errorData as any).technical_details}
                 </pre>
               </div>
             </details>

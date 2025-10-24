@@ -211,7 +211,10 @@ class ApiClient {
   }
 
   // Project integrations
-  async getProjectIntegrations() {
+  async getProjectIntegrations(): Promise<{
+    repositories?: any[]
+    items?: any[]
+  }> {
     const ts = Date.now()
     // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/github/repositories/connected?t=${ts}`)
