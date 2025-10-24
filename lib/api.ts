@@ -7,11 +7,38 @@ class ApiClient {
     this.baseURL = baseURL
   }
 
+  // Get current user ID from localStorage
+  private getCurrentUserId(): string | null {
+    try {
+      const savedUser = localStorage.getItem('user')
+      if (savedUser) {
+        const user = JSON.parse(savedUser)
+        // provider_id를 우선 사용하고, 없으면 id 사용
+        return user.provider_id || user.id
+      }
+    } catch (error) {
+      console.error('Failed to get current user ID:', error)
+    }
+    return null
+  }
+
+  // Add user_id to query parameters
+  private addUserFilter(url: string): string {
+    const userId = this.getCurrentUserId()
+    if (!userId) return url
+    
+    const separator = url.includes('?') ? '&' : '?'
+    return `${url}${separator}user_id=${encodeURIComponent(userId)}`
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`
+    // Add user_id filter to GET requests
+    const url = options.method === 'GET' || !options.method 
+      ? this.addUserFilter(`${this.baseURL}${endpoint}`)
+      : `${this.baseURL}${endpoint}`
     
     const config: RequestInit = {
       headers: {
@@ -30,6 +57,21 @@ class ApiClient {
       config.headers = {
         ...config.headers,
         'Authorization': `Bearer ${token}`,
+      }
+    }
+
+    // Add user_id to POST/PUT/DELETE requests body
+    if (options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method) && options.body) {
+      try {
+        const body = JSON.parse(options.body as string)
+        const userId = this.getCurrentUserId()
+        if (userId) {
+          body.user_id = userId
+          config.body = JSON.stringify(body)
+        }
+      } catch (error) {
+        // If body is not JSON, skip user_id addition
+        console.warn('Could not add user_id to request body:', error)
       }
     }
 
@@ -85,6 +127,7 @@ class ApiClient {
 
   // Dashboard endpoints
   async getDashboardData() {
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request('/api/v1/dashboard/overview')
   }
 
@@ -168,18 +211,24 @@ class ApiClient {
   }
 
   // Project integrations
-  async getProjectIntegrations() {
+  async getProjectIntegrations(): Promise<{
+    repositories?: any[]
+    items?: any[]
+  }> {
     const ts = Date.now()
-    return this.request(`/api/v1/projects/integrations?t=${ts}`)
+    // user_id는 request 메서드에서 자동으로 추가됨
+    return this.request(`/api/v1/github/repositories/connected?t=${ts}`)
   }
 
   async connectRepository(repoUrl: string, projectId: string, repoName: string) {
+    const userId = this.getCurrentUserId()
     return this.request('/api/v1/projects/github/connect', {
       method: 'POST',
       body: JSON.stringify({
         repo_url: repoUrl,
         project_id: projectId,
         repo_name: repoName,
+        user_id: userId, // 명시적으로 user_id 추가
       }),
     })
   }
@@ -190,6 +239,8 @@ class ApiClient {
     if (repository && repository !== "all") {
       params.append("repository", repository)
     }
+    
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/github/pull-requests?${params.toString()}`)
   }
 
@@ -199,26 +250,38 @@ class ApiClient {
     if (repository && repository !== "all") {
       params.append("repository", repository)
     }
+    
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/github/pipelines?${params.toString()}`)
   }
 
   async updateWebhookConfig(integrationId: number, enabled: boolean) {
-    return this.request(`/api/v1/github/webhook/${integrationId}?enabled=${enabled}`, {
+    const userId = this.getCurrentUserId()
+    const url = userId 
+      ? `/api/v1/github/webhook/${integrationId}?enabled=${enabled}&user_id=${encodeURIComponent(userId)}`
+      : `/api/v1/github/webhook/${integrationId}?enabled=${enabled}`
+    return this.request(url, {
       method: 'PUT',
     })
   }
 
   async getWebhookStatus(integrationId: number) {
-    return this.request(`/api/v1/github/webhook/${integrationId}/status`)
+    const userId = this.getCurrentUserId()
+    const url = userId 
+      ? `/api/v1/github/webhook/${integrationId}/status?user_id=${encodeURIComponent(userId)}`
+      : `/api/v1/github/webhook/${integrationId}/status`
+    return this.request(url)
   }
 
   async triggerDeploy(owner: string, repo: string, branch: string = "main") {
+    const userId = this.getCurrentUserId()
     return this.request('/api/v1/github/manual-deploy', {
       method: 'POST',
       body: JSON.stringify({
         github_owner: owner,
         github_repo: repo,
         branch: branch,
+        user_id: userId, // 명시적으로 user_id 추가
       }),
     })
   }
@@ -233,6 +296,7 @@ class ApiClient {
     if (repository) params.append('repository', repository)
     if (status) params.append('status', status)
     
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/deployment-histories?${params.toString()}`)
   }
 
@@ -265,6 +329,7 @@ class ApiClient {
 
   async getRepositoriesLatestDeployments(): Promise<{ repositories: any[] }> {
     const ts = Date.now()
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request(`/api/v1/deployment-histories/repositories/latest?t=${ts}`)
   }
 
@@ -329,6 +394,148 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // Rollback endpoints
+  async getRollbackList(owner: string, repo: string): Promise<RollbackListResponse> {
+    const userId = this.getCurrentUserId()
+    const userIdParam = userId ? `?user_id=${encodeURIComponent(userId)}` : ''
+    return this.request<RollbackListResponse>(`/api/v1/deployments/${owner}/${repo}/rollback/list${userIdParam}`)
+  }
+
+  async rollbackToCommit(owner: string, repo: string, commitSha: string): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request('/api/v1/rollback/commit', {
+      method: 'POST',
+      body: JSON.stringify({
+        owner,
+        repo,
+        target_commit_sha: commitSha,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  async rollbackToPrevious(owner: string, repo: string, stepsBack: number = 1): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request('/api/v1/rollback/previous', {
+      method: 'POST',
+      body: JSON.stringify({
+        owner,
+        repo,
+        steps_back: stepsBack,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  // Scale endpoints
+  async scaleDeployment(owner: string, repo: string, replicas: number): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request(`/api/v1/deployments/${owner}/${repo}/scale`, {
+      method: 'POST',
+      body: JSON.stringify({
+        replicas,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  // Restart endpoint (trigger redeploy with same image)
+  async restartDeployment(owner: string, repo: string): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request(`/api/v1/deployments/${owner}/${repo}/restart`, {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  // Deployment Config endpoints
+  async getDeploymentConfig(owner: string, repo: string): Promise<DeploymentConfigResponse> {
+    const userId = this.getCurrentUserId()
+    const userIdParam = userId ? `?user_id=${encodeURIComponent(userId)}` : ''
+    return this.request<DeploymentConfigResponse>(`/api/v1/deployments/${owner}/${repo}/config${userIdParam}`)
+  }
+
+  async updateDeploymentConfig(owner: string, repo: string, replicaCount: number): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request(`/api/v1/deployments/${owner}/${repo}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        replica_count: replicaCount,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  async getScalingHistory(owner: string, repo: string, limit: number = 20): Promise<ScalingHistoryResponse> {
+    const userId = this.getCurrentUserId()
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+    })
+    if (userId) params.append('user_id', userId)
+    return this.request<ScalingHistoryResponse>(`/api/v1/deployments/${owner}/${repo}/scaling-history?${params.toString()}`)
+  }
+}
+
+// Type definitions for Rollback and Scale
+export interface RollbackCandidate {
+  steps_back: number
+  commit_sha: string
+  commit_sha_short: string
+  commit_message: string
+  deployed_at: string | null
+  is_current: boolean
+}
+
+export interface RollbackListResponse {
+  owner: string
+  repo: string
+  current_state: {
+    commit_sha: string
+    commit_sha_short: string
+    commit_message: string
+    deployed_at: string | null
+    is_rollback: boolean
+    deployment_id: number
+  } | null
+  available_versions: RollbackCandidate[]
+  total_available: number
+  rollback_history: Array<{
+    commit_sha_short: string
+    commit_message: string
+    rolled_back_at: string | null
+    rollback_from_id: number | null
+  }>
+  total_rollbacks: number
+}
+
+// Type definitions for Deployment Config
+export interface DeploymentConfigResponse {
+  owner: string
+  repo: string
+  replica_count: number
+  is_default: boolean
+  last_scaled_at: string | null
+  last_scaled_by: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ScalingHistoryResponse {
+  owner: string
+  repo: string
+  current_replicas: number
+  history: Array<{
+    deployment_id: number
+    replica_count: number
+    deployed_at: string | null
+    commit_sha_short: string | null
+    commit_message: string | null
+    status: string
+  }>
+  total_count: number
 }
 
 export const apiClient = new ApiClient()

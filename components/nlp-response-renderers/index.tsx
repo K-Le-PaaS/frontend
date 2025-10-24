@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { NLPResponse } from "@/lib/types/nlp-response"
+import { NLPResponse, CommandErrorResponse, RollbackExecutionResponse } from "@/lib/types/nlp-response"
 
 // 개별 렌더러들 import
 import { PodListRenderer } from "./PodListRenderer"
@@ -24,6 +24,8 @@ import { DeployResponseRenderer } from "./DeployResponseRenderer"
 // import { RestartRenderer } from "./RestartRenderer"
 // import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 // import { ErrorRenderer } from "./ErrorRenderer"
+import { CommandErrorRenderer } from "./CommandErrorRenderer"
+import { RollbackExecutionRenderer } from "./RollbackExecutionRenderer"
 // import { UnknownRenderer } from "./UnknownRenderer"
 
 interface NLPResponseRendererProps {
@@ -57,21 +59,51 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     )
   }
 
+  // 명령어 에러 응답 처리
+  if (response.type === 'command_error') {
+    return <CommandErrorRenderer response={response as CommandErrorResponse} />
+  }
+
+  // 롤백 실행 응답 처리
+  if (response.type === 'rollback_execution') {
+    return <RollbackExecutionRenderer response={response as RollbackExecutionResponse} />
+  }
+
   // 알 수 없는 응답 처리
   if (response.type === 'unknown') {
+    const suggestions = response.data?.formatted?.suggestions || []
     return (
-      <div className="p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
-        <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
-          <span className="font-medium">알 수 없는 응답</span>
+      <div className="p-4 border border-blue-200 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+        <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+          <span className="font-medium">❌ 명령어를 이해할 수 없습니다</span>
         </div>
-        <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
           {response.summary}
         </p>
-        <details className="mt-2">
-          <summary className="text-xs text-yellow-600 dark:text-yellow-400 cursor-pointer">
-            원본 데이터
+        
+        {suggestions.length > 0 && (
+          <div className="mt-3">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+              💡 올바른 사용법:
+            </p>
+            <div className="space-y-1">
+              {suggestions.map((suggestion: string, index: number) => (
+                <div 
+                  key={index}
+                  className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-1 rounded border border-blue-200 dark:border-blue-800"
+                >
+                  {suggestion}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <details className="mt-3">
+          <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer">
+            ▼ 원본 데이터
           </summary>
-          <pre className="text-xs bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded mt-1 overflow-x-auto">
+          <pre className="text-xs bg-blue-100 dark:bg-blue-900/30 p-2 rounded mt-1 overflow-x-auto">
             {JSON.stringify(response.data.formatted, null, 2)}
           </pre>
         </details>

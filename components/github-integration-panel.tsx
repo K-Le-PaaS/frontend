@@ -200,7 +200,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
   const [activeTab, setActiveTab] = useState(initialTab)
   
   // 사용자 인증 정보 가져오기
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
   console.log("GitHubIntegrationPanel: user object:", user)
   console.log("GitHubIntegrationPanel: user.id:", user?.id)
@@ -420,19 +420,23 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       try {
         setLoading(true)
         // Backend should return list of integrations
-        const data = await apiClient.getProjectIntegrations()
+        const response = await apiClient.getProjectIntegrations()
         if (!mounted) return
+        
+        // Handle the actual API response structure
+        const data = response.repositories || response.items || []
+        
         // Map backend rows to Repository view model
         const mapped: Repository[] = (Array.isArray(data) ? data : []).map((r: any, idx: number) => ({
           id: String(r.id ?? idx),
-          name: r.repo ?? r.name ?? "",
-          fullName: r.github_full_name ?? `${r.owner ?? r.github_owner}/${r.repo ?? r.github_repo}`,
-          connected: true,
-          lastSync: r.updated_at ? new Date(r.updated_at) : new Date(),
+          name: r.name ?? "",
+          fullName: r.fullName ?? r.github_full_name ?? `${r.owner ?? r.github_owner}/${r.name ?? r.github_repo}`,
+          connected: r.connected ?? true,
+          lastSync: r.lastSync ? new Date(r.lastSync) : (r.updated_at ? new Date(r.updated_at) : new Date()),
           branch: r.branch ?? "main",
-          status: (r.auto_deploy_enabled ? "active" : "inactive") as Repository["status"],
-          autoDeployEnabled: !!r.auto_deploy_enabled,
-          webhookConfigured: Boolean(r.github_webhook_secret),
+          status: (r.autoDeployEnabled || r.auto_deploy_enabled ? "active" : "inactive") as Repository["status"],
+          autoDeployEnabled: !!r.autoDeployEnabled || !!r.auto_deploy_enabled,
+          webhookConfigured: Boolean(r.webhookConfigured || r.github_webhook_secret),
         }))
         // Debug: log exact count and payload
         console.log('[GitHubIntegrationPanel] integrations.length =', mapped.length, mapped)
@@ -1059,6 +1063,46 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
     } else {
       alert("Deploy preview is not available for this PR")
     }
+  }
+
+  // 사용자 인증 상태 확인
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <span className="ml-4 text-lg">인증 상태 확인 중...</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>GitHub 연동</CardTitle>
+            <CardDescription>
+              GitHub 리포지토리를 연동하려면 먼저 로그인해주세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Github className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground mb-4">
+                GitHub 리포지토리를 연동하고 자동 배포를 설정하려면 로그인이 필요합니다.
+              </p>
+              <Button onClick={() => {
+                // Header의 로그인 버튼과 동일하게 OAuth 로그인 모달 열기
+                const event = new CustomEvent('openLoginModal')
+                window.dispatchEvent(event)
+              }}>
+                로그인
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api'
 
 interface User {
   id: string
+  provider_id?: string  // OAuth provider의 실제 고유 ID
   email: string
   name: string
   picture?: string

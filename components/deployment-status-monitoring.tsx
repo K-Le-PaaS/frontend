@@ -33,6 +33,10 @@ import {
   ExternalLink,
 } from "lucide-react"
 import { api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
+import { RollbackDialog } from "@/components/rollback-dialog"
+import { ScaleDialog } from "@/components/scale-dialog"
+import { RestartDialog } from "@/components/restart-dialog"
 
 interface RepositoryWorkload {
   owner: string
@@ -79,20 +83,46 @@ interface DeploymentStatusMonitoringProps {
   onNavigateToPipelines?: () => void
 }
 
-export function DeploymentStatusMonitoring({ 
-  onNavigateToMonitoring, 
-  onNavigateToPipelines 
+export function DeploymentStatusMonitoring({
+  onNavigateToMonitoring,
+  onNavigateToPipelines
 }: DeploymentStatusMonitoringProps = {}) {
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
+
+  // Dialog states for Rollback, Scale, Restart
+  const [rollbackDialogOpen, setRollbackDialogOpen] = useState(false)
+  const [scaleDialogOpen, setScaleDialogOpen] = useState(false)
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false)
+  const [actionRepo, setActionRepo] = useState<RepositoryWorkload | null>(null)
+
+  // 사용자 인증 상태 확인
+  const { user, isLoading: authLoading } = useAuth()
 
   const fetchRepositories = async () => {
     try {
       setLoading(true)
       const response = await api.getRepositoriesLatestDeployments()
       setRepositories(response.repositories)
+
+      // Fetch deployment configs for each repository
+      const configs: Record<string, { replica_count: number }> = {}
+      await Promise.all(
+        response.repositories.map(async (repo: RepositoryWorkload) => {
+          try {
+            const config = await api.getDeploymentConfig(repo.owner, repo.repo)
+            configs[repo.full_name] = { replica_count: config.replica_count }
+          } catch (error) {
+            console.error(`Failed to fetch config for ${repo.full_name}:`, error)
+            // Use default replica count if config fetch fails
+            configs[repo.full_name] = { replica_count: 1 }
+          }
+        })
+      )
+      setDeploymentConfigs(configs)
     } catch (error) {
       console.error("Failed to fetch repositories:", error)
     } finally {
@@ -156,6 +186,66 @@ export function DeploymentStatusMonitoring({
   const handleViewDetails = (repo: RepositoryWorkload) => {
     setSelectedRepo(repo)
     setDetailsOpen(true)
+  }
+
+  const handleOpenRollback = (repo: RepositoryWorkload) => {
+    setActionRepo(repo)
+    setRollbackDialogOpen(true)
+  }
+
+  const handleOpenScale = (repo: RepositoryWorkload) => {
+    setActionRepo(repo)
+    setScaleDialogOpen(true)
+  }
+
+  const handleOpenRestart = (repo: RepositoryWorkload) => {
+    setActionRepo(repo)
+    setRestartDialogOpen(true)
+  }
+
+  const handleActionSuccess = () => {
+    // Refresh repositories after successful action
+    fetchRepositories()
+  }
+
+  // 사용자 인증 상태 확인
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <span className="ml-4 text-lg">인증 상태 확인 중...</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>배포 상태 모니터링</CardTitle>
+            <CardDescription>
+              배포 상태를 확인하려면 먼저 로그인해주세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Server className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground mb-4">
+                배포 상태를 모니터링하려면 로그인이 필요합니다.
+              </p>
+                     <Button onClick={() => {
+                       // Header의 로그인 버튼과 동일하게 OAuth 로그인 모달 열기
+                       const event = new CustomEvent('openLoginModal')
+                       window.dispatchEvent(event)
+                     }}>
+                       로그인
+                     </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -253,10 +343,10 @@ export function DeploymentStatusMonitoring({
                           </div>
                           <p className="text-sm font-semibold">
                             {repo.latest_deployment.cluster.replicas.ready}/
-                            {repo.latest_deployment.cluster.replicas.desired}
+                            {deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired}
                             <span className="text-xs text-muted-foreground ml-2">
                               {repo.latest_deployment.cluster.replicas.ready ===
-                              repo.latest_deployment.cluster.replicas.desired
+                              (deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired)
                                 ? "• All Ready"
                                 : "• Scaling"}
                             </span>
@@ -300,15 +390,30 @@ export function DeploymentStatusMonitoring({
 
                     {/* Actions */}
                     <div className="flex gap-2">
-                      <Button size="default" variant="outline" className="flex-1">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenScale(repo)}
+                      >
                         <Scale className="mr-2 h-4 w-4" />
                         Scale
                       </Button>
-                      <Button size="default" variant="outline" className="flex-1">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenRollback(repo)}
+                      >
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Rollback
                       </Button>
-                      <Button size="default" variant="outline" className="flex-1">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenRestart(repo)}
+                      >
                         <Play className="mr-2 h-4 w-4" />
                         Restart
                       </Button>
@@ -378,7 +483,7 @@ export function DeploymentStatusMonitoring({
                         <p className="text-sm text-muted-foreground">Replicas</p>
                         <p className="mt-1 font-medium">
                           {selectedRepo.latest_deployment.cluster.replicas.ready} /{" "}
-                          {selectedRepo.latest_deployment.cluster.replicas.desired}
+                          {deploymentConfigs[selectedRepo.full_name]?.replica_count ?? selectedRepo.latest_deployment.cluster.replicas.desired}
                         </p>
                       </div>
                       <div>
@@ -549,6 +654,42 @@ export function DeploymentStatusMonitoring({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Rollback Dialog */}
+      {actionRepo && (
+        <RollbackDialog
+          open={rollbackDialogOpen}
+          onOpenChange={setRollbackDialogOpen}
+          owner={actionRepo.owner}
+          repo={actionRepo.repo}
+          onRollbackSuccess={handleActionSuccess}
+        />
+      )}
+
+      {/* Scale Dialog */}
+      {actionRepo && (
+        <ScaleDialog
+          open={scaleDialogOpen}
+          onOpenChange={setScaleDialogOpen}
+          owner={actionRepo.owner}
+          repo={actionRepo.repo}
+          currentReplicas={deploymentConfigs[actionRepo.full_name]?.replica_count ?? actionRepo.latest_deployment?.cluster.replicas.desired}
+          onScaleSuccess={handleActionSuccess}
+        />
+      )}
+
+      {/* Restart Dialog */}
+      {actionRepo && (
+        <RestartDialog
+          open={restartDialogOpen}
+          onOpenChange={setRestartDialogOpen}
+          owner={actionRepo.owner}
+          repo={actionRepo.repo}
+          currentCommitSha={actionRepo.latest_deployment?.commit.sha}
+          currentImage={actionRepo.latest_deployment?.image.url}
+          onRestartSuccess={handleActionSuccess}
+        />
+      )}
     </div>
   )
 }
