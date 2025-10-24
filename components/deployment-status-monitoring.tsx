@@ -34,6 +34,9 @@ import {
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
+import { RollbackDialog } from "@/components/rollback-dialog"
+import { ScaleDialog } from "@/components/scale-dialog"
+import { RestartDialog } from "@/components/restart-dialog"
 
 interface RepositoryWorkload {
   owner: string
@@ -88,6 +91,12 @@ export function DeploymentStatusMonitoring({
   const [loading, setLoading] = useState(true)
   const [selectedRepo, setSelectedRepo] = useState<RepositoryWorkload | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+
+  // Dialog states for Rollback, Scale, Restart
+  const [rollbackDialogOpen, setRollbackDialogOpen] = useState(false)
+  const [scaleDialogOpen, setScaleDialogOpen] = useState(false)
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false)
+  const [actionRepo, setActionRepo] = useState<RepositoryWorkload | null>(null)
   
   // 사용자 인증 상태 확인
   const { user, isLoading: authLoading } = useAuth()
@@ -160,6 +169,26 @@ export function DeploymentStatusMonitoring({
   const handleViewDetails = (repo: RepositoryWorkload) => {
     setSelectedRepo(repo)
     setDetailsOpen(true)
+  }
+
+  const handleOpenRollback = (repo: RepositoryWorkload) => {
+    setActionRepo(repo)
+    setRollbackDialogOpen(true)
+  }
+
+  const handleOpenScale = (repo: RepositoryWorkload) => {
+    setActionRepo(repo)
+    setScaleDialogOpen(true)
+  }
+
+  const handleOpenRestart = (repo: RepositoryWorkload) => {
+    setActionRepo(repo)
+    setRestartDialogOpen(true)
+  }
+
+  const handleActionSuccess = () => {
+    // Refresh repositories after successful action
+    fetchRepositories()
   }
 
   // 사용자 인증 상태 확인
@@ -344,15 +373,30 @@ export function DeploymentStatusMonitoring({
 
                     {/* Actions */}
                     <div className="flex gap-2">
-                      <Button size="default" variant="outline" className="flex-1">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenScale(repo)}
+                      >
                         <Scale className="mr-2 h-4 w-4" />
                         Scale
                       </Button>
-                      <Button size="default" variant="outline" className="flex-1">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenRollback(repo)}
+                      >
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Rollback
                       </Button>
-                      <Button size="default" variant="outline" className="flex-1">
+                      <Button
+                        size="default"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenRestart(repo)}
+                      >
                         <Play className="mr-2 h-4 w-4" />
                         Restart
                       </Button>
@@ -593,6 +637,42 @@ export function DeploymentStatusMonitoring({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Rollback Dialog */}
+      {actionRepo && (
+        <RollbackDialog
+          open={rollbackDialogOpen}
+          onOpenChange={setRollbackDialogOpen}
+          owner={actionRepo.owner}
+          repo={actionRepo.repo}
+          onRollbackSuccess={handleActionSuccess}
+        />
+      )}
+
+      {/* Scale Dialog */}
+      {actionRepo && (
+        <ScaleDialog
+          open={scaleDialogOpen}
+          onOpenChange={setScaleDialogOpen}
+          owner={actionRepo.owner}
+          repo={actionRepo.repo}
+          currentReplicas={actionRepo.latest_deployment?.cluster.replicas.desired}
+          onScaleSuccess={handleActionSuccess}
+        />
+      )}
+
+      {/* Restart Dialog */}
+      {actionRepo && (
+        <RestartDialog
+          open={restartDialogOpen}
+          onOpenChange={setRestartDialogOpen}
+          owner={actionRepo.owner}
+          repo={actionRepo.repo}
+          currentCommitSha={actionRepo.latest_deployment?.commit.sha}
+          currentImage={actionRepo.latest_deployment?.image.url}
+          onRestartSuccess={handleActionSuccess}
+        />
+      )}
     </div>
   )
 }

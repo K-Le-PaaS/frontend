@@ -391,6 +391,94 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // Rollback endpoints
+  async getRollbackList(owner: string, repo: string): Promise<RollbackListResponse> {
+    const userId = this.getCurrentUserId()
+    const userIdParam = userId ? `?user_id=${encodeURIComponent(userId)}` : ''
+    return this.request<RollbackListResponse>(`/api/v1/deployments/${owner}/${repo}/rollback/list${userIdParam}`)
+  }
+
+  async rollbackToCommit(owner: string, repo: string, commitSha: string): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request('/api/v1/rollback/commit', {
+      method: 'POST',
+      body: JSON.stringify({
+        owner,
+        repo,
+        target_commit_sha: commitSha,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  async rollbackToPrevious(owner: string, repo: string, stepsBack: number = 1): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request('/api/v1/rollback/previous', {
+      method: 'POST',
+      body: JSON.stringify({
+        owner,
+        repo,
+        steps_back: stepsBack,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  // Scale endpoints
+  async scaleDeployment(owner: string, repo: string, replicas: number): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request(`/api/v1/deployments/${owner}/${repo}/scale`, {
+      method: 'POST',
+      body: JSON.stringify({
+        replicas,
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+
+  // Restart endpoint (trigger redeploy with same image)
+  async restartDeployment(owner: string, repo: string): Promise<any> {
+    const userId = this.getCurrentUserId()
+    return this.request(`/api/v1/deployments/${owner}/${repo}/restart`, {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId || 'api_user',
+      }),
+    })
+  }
+}
+
+// Type definitions for Rollback and Scale
+export interface RollbackCandidate {
+  steps_back: number
+  commit_sha: string
+  commit_sha_short: string
+  commit_message: string
+  deployed_at: string | null
+  is_current: boolean
+}
+
+export interface RollbackListResponse {
+  owner: string
+  repo: string
+  current_state: {
+    commit_sha: string
+    commit_sha_short: string
+    commit_message: string
+    deployed_at: string | null
+    is_rollback: boolean
+    deployment_id: number
+  } | null
+  available_versions: RollbackCandidate[]
+  total_available: number
+  rollback_history: Array<{
+    commit_sha_short: string
+    commit_message: string
+    rolled_back_at: string | null
+    rollback_from_id: number | null
+  }>
+  total_rollbacks: number
 }
 
 export const apiClient = new ApiClient()
