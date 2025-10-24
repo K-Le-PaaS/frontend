@@ -11,17 +11,20 @@ interface DeployResponseRendererProps {
   response: {
     data: {
       formatted: {
-        status: string
-        message: string
-        repository: string
-        branch: string
-        commit: {
+        status?: string
+        message?: string
+        repository?: string
+        branch?: string
+        commit?: {
           sha: string
           message: string
           author: string
           url?: string
         }
-        deployment_status: string
+        deployment_status?: string
+        app_name?: string
+        environment?: string
+        [key: string]: any
       }
     }
   }
@@ -30,7 +33,13 @@ interface DeployResponseRendererProps {
 
 export function DeployResponseRenderer({ response, onNavigateToPipelines }: DeployResponseRendererProps) {
   const { data } = response
-  const { message, repository, branch, commit, deployment_status } = data.formatted
+  const { 
+    message = "배포가 시작되었습니다", 
+    repository = "알 수 없는 저장소", 
+    branch = "main", 
+    commit = { sha: "unknown", message: "커밋 정보 없음", author: "Unknown" }, 
+    deployment_status = "진행 중" 
+  } = data.formatted
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
