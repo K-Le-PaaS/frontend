@@ -6,16 +6,27 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * 시간을 "~ ago" 형식으로 변환
+ * 시간을 "~ ago" 형식으로 변환 (한국 시간 기준)
  * 예: "2h ago", "3d ago", "just now"
  */
 export function formatTimeAgo(dateString: string | null | undefined): string {
   if (!dateString) return 'N/A'
 
   try {
-    const date = new Date(dateString)
+    // 한국 시간대 설정
+    const koreaTimeZone = 'Asia/Seoul'
+    
+    // 현재 한국 시간
     const now = new Date()
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    const koreaNow = new Date(now.toLocaleString("en-US", { timeZone: koreaTimeZone }))
+    
+    // 입력된 날짜를 한국 시간으로 변환
+    const inputDate = new Date(dateString)
+    const koreaInputDate = new Date(inputDate.toLocaleString("en-US", { timeZone: koreaTimeZone }))
+    
+    // 시간 차이 계산 (밀리초)
+    const diffMs = koreaNow.getTime() - koreaInputDate.getTime()
+    const seconds = Math.floor(diffMs / 1000)
 
     if (seconds < 60) return 'just now'
 
@@ -34,6 +45,7 @@ export function formatTimeAgo(dateString: string | null | undefined): string {
     const years = Math.floor(months / 12)
     return `${years}y ago`
   } catch (error) {
+    console.error('formatTimeAgo error:', error)
     return 'N/A'
   }
 }

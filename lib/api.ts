@@ -343,8 +343,10 @@ class ApiClient {
   // NLP Command console
   async getCommandHistory(limit: number = 50, offset: number = 0): Promise<any[]> {
     const ts = Date.now()
+    // user_id는 request 메서드에서 자동으로 추가됨
     return this.request<any[]>(`/api/v1/nlp/history?limit=${limit}&offset=${offset}&t=${ts}`)
   }
+
 
   async runCommand(payload: { text: string; context?: any }) {
     // Backend expects { command: string, timestamp: string, context?: any }
@@ -388,8 +390,10 @@ class ApiClient {
   }
 
   // Conversation history endpoints
-  async getConversationHistory(sessionId: string, limit: number = 50): Promise<any> {
-    return this.request<any>(`/api/v1/nlp/conversation/${sessionId}/history?limit=${limit}`)
+  async getConversationHistory(limit: number = 50, offset: number = 0): Promise<any[]> {
+    const ts = Date.now()
+    // user_id는 request 메서드에서 자동으로 추가됨
+    return this.request<any[]>(`/api/v1/nlp/conversation-history?limit=${limit}&offset=${offset}&t=${ts}`)
   }
 
   async listConversations(): Promise<any> {
