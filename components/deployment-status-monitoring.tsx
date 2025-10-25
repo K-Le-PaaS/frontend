@@ -172,9 +172,19 @@ export function DeploymentStatusMonitoring({
   }
 
   const formatTime = (isoString: string) => {
-    const date = new Date(isoString)
+    // 한국 시간대 설정
+    const koreaTimeZone = 'Asia/Seoul'
+    
+    // 현재 한국 시간
     const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
+    const koreaNow = new Date(now.toLocaleString("en-US", { timeZone: koreaTimeZone }))
+    
+    // 입력된 날짜를 한국 시간으로 변환
+    const inputDate = new Date(isoString)
+    const koreaInputDate = new Date(inputDate.toLocaleString("en-US", { timeZone: koreaTimeZone }))
+    
+    // 시간 차이 계산 (밀리초)
+    const diffMs = koreaNow.getTime() - koreaInputDate.getTime()
     const diffMins = Math.floor(diffMs / 60000)
 
     if (diffMins < 1) return "Just now"

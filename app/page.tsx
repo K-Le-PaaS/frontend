@@ -14,6 +14,7 @@ import { RealTimeMonitoringDashboard } from "@/components/real-time-monitoring-d
 export default function HomePage() {
   const [activeView, setActiveView] = useState("dashboard")
   const [githubInitialTab, setGithubInitialTab] = useState("repositories")
+  const [scrollToMessageId, setScrollToMessageId] = useState<number | undefined>(undefined)
   const { toast } = useToast()
 
   // Show Slack connected toast when redirected with ?slack=connected
@@ -35,13 +36,28 @@ export default function HomePage() {
     } catch {}
   }, [])
 
+  // 대시보드에서 대화창으로 이동하는 함수
+  const handleNavigateToChat = (commandId: number) => {
+    setScrollToMessageId(commandId)
+    setActiveView("commands")
+  }
+
+  // 스크롤 완료 후 scrollToMessageId 초기화
+  const handleScrollComplete = () => {
+    setScrollToMessageId(undefined)
+  }
+
   const renderContent = () => {
     switch (activeView) {
       case "commands":
-        return <NaturalLanguageCommand onNavigateToPipelines={() => {
-          setGithubInitialTab("pipelines")
-          setActiveView("github")
-        }} />
+        return <NaturalLanguageCommand 
+          scrollToMessageId={scrollToMessageId}
+          onScrollComplete={handleScrollComplete}
+          onNavigateToPipelines={() => {
+            setGithubInitialTab("pipelines")
+            setActiveView("github")
+          }} 
+        />
       case "deployments":
         return <DeploymentStatusMonitoring 
           onNavigateToMonitoring={() => setActiveView("monitoring")}
@@ -59,7 +75,10 @@ export default function HomePage() {
         return <RealTimeMonitoringDashboard />
       case "dashboard":
       default:
-        return <DashboardOverview onNavigateToDeployments={() => setActiveView("deployments")} />
+        return <DashboardOverview 
+          onNavigateToDeployments={() => setActiveView("deployments")}
+          onNavigateToChat={handleNavigateToChat}
+        />
     }
   }
 

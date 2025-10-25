@@ -64,9 +64,11 @@ const suggestedCommands = [
 
 interface NaturalLanguageCommandProps {
   onNavigateToPipelines?: () => void
+  scrollToMessageId?: number
+  onScrollComplete?: () => void
 }
 
-export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguageCommandProps = {}) {
+export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageId, onScrollComplete }: NaturalLanguageCommandProps = {}) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -74,23 +76,182 @@ export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguag
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // 자동 스크롤
+  // 스크롤을 맨 아래로 이동하는 함수
+  const scrollToBottom = () => {
+    if (!scrollAreaRef.current) return
+
+    // ScrollArea의 실제 viewport 요소 찾기
+    const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
+    
+    if (viewport) {
+      // 여러 단계로 확실하게 맨 아래로 스크롤
+      const scrollToEnd = () => {
+        viewport.scrollTop = viewport.scrollHeight
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
+      }
+      
+      // 즉시 스크롤
+      scrollToEnd()
+      
+      // DOM 업데이트 후 다시 스크롤
+      setTimeout(scrollToEnd, 10)
+      setTimeout(scrollToEnd, 50)
+      setTimeout(scrollToEnd, 100)
+      
+      // 마지막 메시지 요소로 스크롤
+      const lastMessage = viewport.querySelector('[data-message]:last-child')
+      if (lastMessage) {
+        setTimeout(() => {
+          lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        }, 150)
+      }
+    } else {
+      // fallback: 직접 스크롤
+      const scrollToEnd = () => {
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+          scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' })
+        }
+      }
+      
+      scrollToEnd()
+      setTimeout(scrollToEnd, 10)
+      setTimeout(scrollToEnd, 50)
+      setTimeout(scrollToEnd, 100)
+    }
+  }
+
+  // 특정 메시지로 스크롤하는 함수
+  const scrollToMessage = (messageId: string) => {
+    if (!scrollAreaRef.current) return
+
+    // ScrollArea의 실제 viewport 요소 찾기
+    const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
+    
+    if (viewport) {
+      // 특정 메시지 요소 찾기
+      const messageElement = viewport.querySelector(`[data-message="${messageId}"]`)
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }
+  }
+
+  // 자동 스크롤 - 메시지가 추가되거나 변경될 때 맨 아래로 스크롤
   useEffect(() => {
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+      // DOM 업데이트 완료 후 스크롤 (여러 단계로 확실하게)
+      requestAnimationFrame(() => {
+        scrollToBottom()
+        // 추가로 여러 번 스크롤하여 확실하게 맨 아래로
+        setTimeout(() => scrollToBottom(), 50)
+        setTimeout(() => scrollToBottom(), 100)
+        setTimeout(() => scrollToBottom(), 200)
+      })
     }
   }, [messages])
 
-  // 세션 초기화 메시지
+  // 특정 메시지로 스크롤 (대시보드에서 명령어 클릭 시)
   useEffect(() => {
-    setMessages([
-      {
-        id: "welcome",
-        role: "system",
-        content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 클러스터 관리, 비용 분석 등을 도와드릴게요. 무엇을 도와드릴까요?",
-        timestamp: new Date(),
-      },
-    ])
+    if (scrollToMessageId && messages.length > 0) {
+      // 메시지가 로드된 후 특정 메시지로 스크롤
+      setTimeout(() => {
+        // 사용자 메시지 ID 찾기
+        const userMessageId = `history-${scrollToMessageId}`
+        
+        // 해당 사용자 메시지 다음의 AI 응답 메시지 찾기
+        const userMessageIndex = messages.findIndex(msg => msg.id === userMessageId)
+        if (userMessageIndex !== -1 && userMessageIndex + 1 < messages.length) {
+          // 다음 메시지가 AI 응답인 경우 해당 메시지로 스크롤
+          const aiResponseMessage = messages[userMessageIndex + 1]
+          if (aiResponseMessage.role === 'assistant') {
+            scrollToMessage(aiResponseMessage.id)
+          } else {
+            // AI 응답이 없으면 사용자 메시지로 스크롤
+            scrollToMessage(userMessageId)
+          }
+        } else {
+          // AI 응답이 없으면 사용자 메시지로 스크롤
+          scrollToMessage(userMessageId)
+        }
+        
+        // 스크롤 완료 후 콜백 호출하여 부모에서 scrollToMessageId 초기화
+        if (onScrollComplete) {
+          onScrollComplete()
+        }
+      }, 200)
+    }
+  }, [scrollToMessageId, messages, onScrollComplete])
+
+  // 세션 초기화 및 대화 히스토리 로드
+  useEffect(() => {
+    const initializeChat = async () => {
+      try {
+        // 기존 대화 세션 목록 조회
+        const conversations = await apiClient.listConversations()
+        
+        if (conversations.sessions && conversations.sessions.length > 0) {
+          // 가장 최근 세션의 대화 히스토리 로드
+          const latestSession = conversations.sessions[0]
+          setSessionId(latestSession.session_id)
+          
+          // 대화 히스토리 로드 (사용자 메시지와 AI 응답 모두)
+          const commandHistory = await apiClient.getConversationHistory(50, 0)
+          
+          if (commandHistory && commandHistory.length > 0) {
+            // command_history를 메시지로 변환
+            const historyMessages: Message[] = commandHistory.map((cmd: any) => ({
+              id: `history-${cmd.id}`,
+              role: cmd.tool === "user_message" ? "user" : "assistant",
+              content: cmd.command_text,
+              timestamp: new Date(cmd.created_at),
+              status: "sent" as const,
+              result: cmd.result,
+            }))
+            
+            setMessages(historyMessages)
+            
+            // 대화 히스토리 로딩 후 스크롤을 맨 아래로 이동
+            setTimeout(() => {
+              scrollToBottom()
+            }, 100)
+          } else {
+            // 대화 히스토리가 없으면 환영 메시지 표시
+            setMessages([
+              {
+                id: "welcome",
+                role: "system",
+                content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 클러스터 관리, 비용 분석 등을 도와드릴게요. 무엇을 도와드릴까요?",
+                timestamp: new Date(),
+              },
+            ])
+          }
+        } else {
+          // 세션이 없으면 환영 메시지 표시
+          setMessages([
+            {
+              id: "welcome",
+              role: "system",
+              content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 클러스터 관리, 비용 분석 등을 도와드릴게요. 무엇을 도와드릴까요?",
+              timestamp: new Date(),
+            },
+          ])
+        }
+      } catch (error) {
+        console.error("대화 히스토리 로드 실패:", error)
+        // 에러 시 환영 메시지 표시
+        setMessages([
+          {
+            id: "welcome",
+            role: "system",
+            content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 클러스터 관리, 비용 분석 등을 도와드릴게요. 무엇을 도와드릴까요?",
+            timestamp: new Date(),
+          },
+        ])
+      }
+    }
+
+    initializeChat()
   }, [])
 
   const formatCurrency = (amount: number, currency: string = "KRW") => {
@@ -297,6 +458,7 @@ export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguag
     return (
       <div
         key={message.id}
+        data-message={message.id}
         className={cn("flex gap-3 mb-4", isUser ? "justify-end" : "justify-start")}
       >
         {!isUser && (
@@ -361,8 +523,8 @@ export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguag
               </div>
             )}
 
-            {/* 실행 결과 */}
-            {message.result && (
+            {/* 실행 결과 (AI 응답에만) */}
+            {message.result && message.role === "assistant" && (
               <div className="mt-4">
                 <NLPResponseRenderer 
                   response={message.result as NLPResponse}
@@ -430,25 +592,23 @@ export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguag
             </div>
           </ScrollArea>
 
-          {/* 추천 명령어 */}
-          {messages.length === 1 && (
-            <div className="p-4 border-t bg-muted/50">
-              <p className="text-sm text-muted-foreground mb-2">추천 명령어:</p>
-              <div className="flex flex-wrap gap-2">
-                {suggestedCommands.map((cmd, idx) => (
-                  <Button
-                    key={idx}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSendMessage(cmd)}
-                    disabled={loading}
-                  >
-                    {cmd}
-                  </Button>
-                ))}
-              </div>
+          {/* 추천 명령어 - 항상 표시 */}
+          <div className="p-4 border-t bg-muted/50">
+            <p className="text-sm text-muted-foreground mb-2">추천 명령어:</p>
+            <div className="flex flex-wrap gap-2">
+              {suggestedCommands.map((cmd, idx) => (
+                <Button
+                  key={idx}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSendMessage(cmd)}
+                  disabled={loading}
+                >
+                  {cmd}
+                </Button>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* 입력 영역 */}
           <div className="p-4 border-t">

@@ -10,6 +10,7 @@ import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, G
 import { apiClient, api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
+import { RecentCommands } from "@/components/recent-commands"
 
 interface DashboardData {
   clusters: number
@@ -59,9 +60,10 @@ interface RepositoryWorkload {
 
 interface DashboardOverviewProps {
   onNavigateToDeployments?: () => void
+  onNavigateToChat?: (commandId: number) => void
 }
 
-export function DashboardOverview({ onNavigateToDeployments }: DashboardOverviewProps) {
+export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat }: DashboardOverviewProps) {
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
@@ -238,7 +240,7 @@ export function DashboardOverview({ onNavigateToDeployments }: DashboardOverview
         </Card>
       </div>
 
-      {/* Active Deployments & System Health */}
+      {/* Active Deployments & Recent Commands */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -367,41 +369,7 @@ export function DashboardOverview({ onNavigateToDeployments }: DashboardOverview
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>System Health</CardTitle>
-            <CardDescription>Current system status</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {data.systemHealth.map((health, index) => {
-              const getBadgeStyle = () => {
-                switch (health.status) {
-                  case 'healthy':
-                    return 'bg-green-100 text-green-800'
-                  case 'warning':
-                    return 'bg-yellow-100 text-yellow-800'
-                  case 'error':
-                    return 'bg-red-100 text-red-800'
-                  default:
-                    return 'bg-gray-100 text-gray-800'
-                }
-              }
-
-              return (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm">{health.service}</span>
-                  <Badge className={getBadgeStyle()}>
-                    {health.status.charAt(0).toUpperCase() + health.status.slice(1)}
-                  </Badge>
-                </div>
-              )
-            })}
-
-            <Button className="w-full mt-4 bg-transparent" variant="outline">
-              View Detailed Health Report
-            </Button>
-          </CardContent>
-        </Card>
+        <RecentCommands onNavigateToChat={onNavigateToChat} />
       </div>
     </div>
   )
