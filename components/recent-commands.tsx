@@ -40,8 +40,14 @@ export function RecentCommands({ onNavigateToChat }: RecentCommandsProps = {}) {
     try {
       // API 클라이언트를 사용하여 user_id가 자동으로 추가되도록 수정
       const { apiClient } = await import("@/lib/api")
-      const data = await apiClient.getCommandHistory(5, 0)
-      setCommands(data)
+      // 더 많은 데이터를 조회한 후 프론트엔드에서 필터링
+      const allData = await apiClient.getCommandHistory(50, 0)
+      console.log('📊 Recent Commands 조회된 전체 데이터:', allData)
+      
+      // 프론트엔드에서 유저 메시지만 필터링하고 5개로 제한
+      const userMessages = allData.filter(cmd => cmd.tool === "user_message").slice(0, 5)
+      console.log('📊 필터링된 유저 메시지 (5개):', userMessages)
+      setCommands(userMessages)
     } catch (error) {
       console.error("Failed to fetch command history:", error)
     } finally {
@@ -98,12 +104,21 @@ export function RecentCommands({ onNavigateToChat }: RecentCommandsProps = {}) {
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Terminal className="h-5 w-5" />
-            Recent Commands
-          </CardTitle>
-          <CardDescription>Latest natural language command executions</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              Recent Commands
+            </CardTitle>
+            <CardDescription>Latest natural language command executions</CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onNavigateToChat?.(0)}
+          >
+            Start Chat
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -122,12 +137,21 @@ export function RecentCommands({ onNavigateToChat }: RecentCommandsProps = {}) {
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Terminal className="h-5 w-5" />
-            Recent Commands
-          </CardTitle>
-          <CardDescription>Latest natural language command executions</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              Recent Commands
+            </CardTitle>
+            <CardDescription>Latest natural language command executions</CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onNavigateToChat?.(0)}
+          >
+            Start Chat
+          </Button>
         </CardHeader>
         <CardContent className="space-y-3">
           {commands.length > 0 ? (

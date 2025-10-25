@@ -329,28 +329,10 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat }:
                               </>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-blue-600 hover:text-blue-800 cursor-pointer underline">
-                              Service: {repo.repo}-svc
-                            </span>
-                            <span>•</span>
-                            <span className="text-purple-600 hover:text-purple-800 cursor-pointer underline">
-                              Pods: {repo.repo}-deployment
-                            </span>
-                            <span>•</span>
-                            <span className="text-green-600 hover:text-green-800 cursor-pointer underline">
-                              Ingress: {repo.repo}.klepaas.app
-                            </span>
-                          </div>
                         </div>
                       ) : (
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">No deployments</p>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-muted-foreground">Service: {repo.repo}-svc</span>
-                            <span>•</span>
-                            <span className="text-muted-foreground">Pods: {repo.repo}-deployment</span>
-                          </div>
                         </div>
                       )}
                     </div>
