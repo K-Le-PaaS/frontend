@@ -42,10 +42,10 @@ export function Header() {
 
   return (
     <>
-      <header className="bg-card border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between">
+      <header className="bg-card border-b border-border px-4 h-16 flex items-center">
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground">K-Le-PaaS</h1>
             <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
               NCP Connected
             </Badge>

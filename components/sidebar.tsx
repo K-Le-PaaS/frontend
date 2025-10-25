@@ -40,15 +40,17 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
     >
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-          {!collapsed && (
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-sidebar-accent rounded-lg flex items-center justify-center">
-                <Terminal className="w-4 h-4 text-sidebar-accent-foreground" />
-              </div>
-              <span className="font-semibold text-sidebar-foreground">K8s Platform</span>
-            </div>
-          )}
+        <div className="flex items-center justify-between px-4 h-16 border-b border-border">
+          <div className="flex items-center justify-start flex-1 pl-1">
+            <img 
+              src="https://k-paas.or.kr/resources/img/logo_main.png" 
+              alt="K-PaaS Logo" 
+              className={cn(
+                "object-contain",
+                collapsed ? "w-8 h-8" : "w-28 h-8"
+              )}
+            />
+          </div>
           <Button
             variant="ghost"
             size="sm"

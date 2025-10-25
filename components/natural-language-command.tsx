@@ -84,19 +84,40 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
     const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
     
     if (viewport) {
-      // 여러 방법으로 스크롤 시도
-      viewport.scrollTop = viewport.scrollHeight
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
+      // 여러 단계로 확실하게 맨 아래로 스크롤
+      const scrollToEnd = () => {
+        viewport.scrollTop = viewport.scrollHeight
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
+      }
+      
+      // 즉시 스크롤
+      scrollToEnd()
+      
+      // DOM 업데이트 후 다시 스크롤
+      setTimeout(scrollToEnd, 10)
+      setTimeout(scrollToEnd, 50)
+      setTimeout(scrollToEnd, 100)
       
       // 마지막 메시지 요소로 스크롤
       const lastMessage = viewport.querySelector('[data-message]:last-child')
       if (lastMessage) {
-        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        setTimeout(() => {
+          lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        }, 150)
       }
     } else {
       // fallback: 직접 스크롤
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
-      scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' })
+      const scrollToEnd = () => {
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+          scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' })
+        }
+      }
+      
+      scrollToEnd()
+      setTimeout(scrollToEnd, 10)
+      setTimeout(scrollToEnd, 50)
+      setTimeout(scrollToEnd, 100)
     }
   }
 
@@ -119,9 +140,13 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
   // 자동 스크롤 - 메시지가 추가되거나 변경될 때 맨 아래로 스크롤
   useEffect(() => {
     if (scrollAreaRef.current) {
-      // requestAnimationFrame을 사용하여 DOM 업데이트 완료 후 스크롤
+      // DOM 업데이트 완료 후 스크롤 (여러 단계로 확실하게)
       requestAnimationFrame(() => {
         scrollToBottom()
+        // 추가로 여러 번 스크롤하여 확실하게 맨 아래로
+        setTimeout(() => scrollToBottom(), 50)
+        setTimeout(() => scrollToBottom(), 100)
+        setTimeout(() => scrollToBottom(), 200)
       })
     }
   }, [messages])
