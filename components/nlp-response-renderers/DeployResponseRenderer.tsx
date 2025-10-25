@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ExternalLink, GitBranch, User, Calendar, MessageSquare, ArrowRight } from "lucide-react"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 import { cn } from "@/lib/utils"
 
 interface DeployResponseRendererProps {
@@ -41,9 +42,6 @@ export function DeployResponseRenderer({ response, onNavigateToPipelines }: Depl
     deployment_status = "진행 중" 
   } = data.formatted
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const formatCommitSha = (sha: string) => {
     return sha.substring(0, 7)

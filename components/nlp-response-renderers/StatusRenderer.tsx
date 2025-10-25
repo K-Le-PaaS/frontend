@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Copy, Activity, CheckCircle, AlertCircle, Clock, Server } from "lucide-react"
 import { StatusResponse, StatusData } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 import { cn } from "@/lib/utils"
 
 interface StatusRendererProps {
@@ -44,9 +45,6 @@ export function StatusRenderer({ response }: StatusRendererProps) {
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   return (
     <Card className="w-full">

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Copy, DollarSign, TrendingUp, AlertTriangle } from "lucide-react"
 import { CostAnalysisResponse } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface CostAnalysisRendererProps {
   response: CostAnalysisResponse
@@ -23,9 +24,6 @@ export function CostAnalysisRenderer({ response }: CostAnalysisRendererProps) {
     network: monthly_cost * 0.2
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const formatCurrency = (amount: number, currency: string) => {
     if (currency === 'KRW' || currency === '₩') {

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Copy, Server, Activity, CheckCircle, AlertTriangle } from "lucide-react"
 import { OverviewResponse } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface OverviewRendererProps {
   response: OverviewResponse
@@ -27,9 +28,6 @@ export function OverviewRenderer({ response }: OverviewRendererProps) {
   }
   const health_status = "healthy"
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const getHealthStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {

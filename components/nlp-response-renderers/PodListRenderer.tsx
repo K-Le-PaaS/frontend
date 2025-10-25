@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Copy, RefreshCw, AlertCircle, CheckCircle, Clock } from "lucide-react"
 import { PodListResponse, PodInfo } from "@/lib/types/nlp-response"
 import { cn } from "@/lib/utils"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface PodListRendererProps {
   response: PodListResponse
@@ -43,10 +44,6 @@ export function PodListRenderer({ response }: PodListRendererProps) {
       default:
         return "outline" as const
     }
-  }
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
   }
 
   return (
@@ -123,15 +120,24 @@ export function PodListRenderer({ response }: PodListRendererProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <code className="text-sm bg-muted px-2 py-1 rounded">
+                        <span className="font-mono text-sm text-foreground">
                           {pod.name}
-                        </code>
+                        </span>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => copyToClipboard(pod.name)}
+                          title="Pod 이름 복사"
                         >
                           <Copy className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(`kubectl logs ${pod.name} -n ${pod.namespace}`)}
+                          title="로그 조회 명령어 복사"
+                        >
+                          <RefreshCw className="w-3 h-3" />
                         </Button>
                       </div>
                     </TableCell>

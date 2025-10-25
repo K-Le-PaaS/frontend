@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Copy, FileText, Download, RefreshCw } from "lucide-react"
 import { LogsResponse } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface LogsRendererProps {
   response: LogsResponse
@@ -20,9 +21,6 @@ export function LogsRenderer({ response }: LogsRendererProps) {
   const total_lines = formatted.total_lines || 0
   const [showAll, setShowAll] = useState(false)
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const downloadLogs = () => {
     const logText = logs.join('\n')
