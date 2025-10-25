@@ -12,6 +12,7 @@ import {
   Clock
 } from "lucide-react"
 import { RollbackExecutionResponse } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface RollbackExecutionRendererProps {
   response: RollbackExecutionResponse
@@ -21,9 +22,6 @@ export function RollbackExecutionRenderer({ response }: RollbackExecutionRendere
   const { data, metadata } = response
   const rollbackData = data?.formatted || {}
   
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
 
   return (

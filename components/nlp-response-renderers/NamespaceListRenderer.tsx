@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Copy, Folder, CheckCircle, XCircle } from "lucide-react"
 import { NamespaceListResponse, NamespaceInfo } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface NamespaceListRendererProps {
   response: NamespaceListResponse
@@ -17,9 +18,6 @@ export function NamespaceListRenderer({ response }: NamespaceListRendererProps) 
   const namespaces = data.formatted as NamespaceInfo[]
   const total_namespaces = namespaces.length
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {

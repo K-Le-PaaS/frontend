@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Copy, Globe, ExternalLink } from "lucide-react"
 import { IngressListResponse, IngressInfo } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface IngressListRendererProps {
   response: IngressListResponse
@@ -18,9 +19,6 @@ export function IngressListRenderer({ response }: IngressListRendererProps) {
   const namespace = metadata?.namespace || "default"
   const total_ingresses = ingresses.length
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const getIngressClassBadge = (ingressClass: string) => {
     switch (ingressClass.toLowerCase()) {

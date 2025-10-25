@@ -292,38 +292,64 @@ export function DashboardOverview({ onNavigateToDeployments }: DashboardOverview
                 return (
                   <div
                     key={repo.full_name}
-                    className="flex items-start justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                    className="flex items-start justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
                     onClick={() => onNavigateToDeployments?.()}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <Github className="h-3 w-3 shrink-0" />
-                        <p className="text-sm font-medium truncate">{repo.full_name}</p>
+                        <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                          {repo.full_name}
+                        </p>
                       </div>
                       {repo.latest_deployment ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="font-mono">
-                            {repo.latest_deployment.image.tag}
-                          </span>
-                          <span>•</span>
-                          <span>
-                            {repo.latest_deployment.cluster.replicas.ready}/
-                            {deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired} replicas
-                          </span>
-                          <span>•</span>
-                          <span>{formatTimeAgo(repo.latest_deployment.timing.started_at)}</span>
-                          {repo.auto_deploy_enabled && (
-                            <>
-                              <span>•</span>
-                              <span className="flex items-center gap-1">
-                                <Zap className="h-3 w-3" />
-                                Auto
-                              </span>
-                            </>
-                          )}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="font-mono bg-muted px-1 rounded">
+                              {repo.latest_deployment.image.tag}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              <span className="font-medium text-foreground">
+                                {repo.latest_deployment.cluster.replicas.ready}/
+                                {deploymentConfigs[repo.full_name]?.replica_count ?? repo.latest_deployment.cluster.replicas.desired}
+                              </span> pods ready
+                            </span>
+                            <span>•</span>
+                            <span>{formatTimeAgo(repo.latest_deployment.timing.started_at)}</span>
+                            {repo.auto_deploy_enabled && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1 text-green-600">
+                                  <Zap className="h-3 w-3" />
+                                  Auto Deploy
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-blue-600 hover:text-blue-800 cursor-pointer underline">
+                              Service: {repo.repo}-svc
+                            </span>
+                            <span>•</span>
+                            <span className="text-purple-600 hover:text-purple-800 cursor-pointer underline">
+                              Pods: {repo.repo}-deployment
+                            </span>
+                            <span>•</span>
+                            <span className="text-green-600 hover:text-green-800 cursor-pointer underline">
+                              Ingress: {repo.repo}.klepaas.app
+                            </span>
+                          </div>
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground">No deployments</p>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">No deployments</p>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Service: {repo.repo}-svc</span>
+                            <span>•</span>
+                            <span className="text-muted-foreground">Pods: {repo.repo}-deployment</span>
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div className="ml-2 shrink-0">

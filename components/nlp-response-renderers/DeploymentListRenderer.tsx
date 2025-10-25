@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Copy, Package, CheckCircle, XCircle, Clock } from "lucide-react"
 import { DeploymentListResponse, DeploymentInfo } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 
 interface DeploymentListRendererProps {
   response: DeploymentListResponse
@@ -18,9 +19,6 @@ export function DeploymentListRenderer({ response }: DeploymentListRendererProps
   const namespace = metadata?.namespace || "default"
   const total_deployments = deployments.length
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const getReadyStatus = (ready: string) => {
     const [readyCount, totalCount] = ready.split('/').map(Number)

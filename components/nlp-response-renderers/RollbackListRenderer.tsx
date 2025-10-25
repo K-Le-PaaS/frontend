@@ -13,6 +13,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { RollbackListResponse, RollbackListData, RollbackVersion, RollbackCurrent } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 import { cn } from "@/lib/utils"
 
 interface RollbackListRendererProps {
@@ -23,10 +24,6 @@ interface RollbackListRendererProps {
 export function RollbackListRenderer({ response, onRollbackClick }: RollbackListRendererProps) {
   const { data, metadata } = response
   const rollbackData = data.formatted as RollbackListData
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const formatCommitHash = (commit: string) => {
     return commit.length > 7 ? commit.substring(0, 7) : commit

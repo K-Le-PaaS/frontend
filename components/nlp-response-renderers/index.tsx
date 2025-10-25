@@ -24,9 +24,7 @@ import { DeployResponseRenderer } from "./DeployResponseRenderer"
 // import { RestartRenderer } from "./RestartRenderer"
 // import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 // import { ErrorRenderer } from "./ErrorRenderer"
-import { CommandErrorRenderer } from "./CommandErrorRenderer"
-import { RollbackExecutionRenderer } from "./RollbackExecutionRenderer"
-// import { UnknownRenderer } from "./UnknownRenderer"
+import { EndpointRenderer } from "./EndpointRenderer"
 
 interface NLPResponseRendererProps {
   response: NLPResponse
@@ -60,14 +58,14 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
   }
 
   // 명령어 에러 응답 처리
-  if (response.type === 'command_error') {
-    return <CommandErrorRenderer response={response as CommandErrorResponse} />
-  }
+  // if (response.type === 'command_error') {
+  //   return <CommandErrorRenderer response={response as CommandErrorResponse} />
+  // }
 
   // 롤백 실행 응답 처리
-  if (response.type === 'rollback_execution') {
-    return <RollbackExecutionRenderer response={response as RollbackExecutionResponse} />
-  }
+  // if (response.type === 'rollback_execution') {
+  //   return <RollbackExecutionRenderer response={response as RollbackExecutionResponse} />
+  // }
 
   // 알 수 없는 응답 처리
   if (response.type === 'unknown') {
@@ -156,8 +154,8 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     // case 'overview':
     //   return <OverviewRenderer response={response} />
     
-    // case 'endpoint':
-    //   return <EndpointRenderer response={response} />
+    case 'endpoint':
+      return <EndpointRenderer response={response} />
     
     // case 'scale':
     //   return <ScaleRenderer response={response} />

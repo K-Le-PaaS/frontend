@@ -17,6 +17,7 @@ import {
   Command
 } from "lucide-react"
 import { CommandErrorResponse } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
 import { cn } from "@/lib/utils"
 
 interface CommandErrorRendererProps {
@@ -27,9 +28,6 @@ export function CommandErrorRenderer({ response }: CommandErrorRendererProps) {
   const { data, metadata } = response
   const errorData = data.formatted || {}
   
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-  }
 
   const getErrorIcon = (errorType: string) => {
     switch (errorType.toLowerCase()) {

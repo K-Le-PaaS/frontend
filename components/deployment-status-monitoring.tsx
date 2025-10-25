@@ -75,6 +75,7 @@ interface RepositoryWorkload {
       completed_at: string
       total_duration: number
     }
+    service_url?: string  // 배포된 서비스 URL
   } | null
   auto_deploy_enabled: boolean
 }
@@ -302,14 +303,14 @@ export function DeploymentStatusMonitoring({
                     {/* Domain URL - Prominent Section */}
                     <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-950/30 dark:to-transparent border-l-4 border-blue-500 rounded-md group">
                       <a
-                        href={`https://${repo.repo}.klepaas.com`}
+                        href={repo.latest_deployment.service_url || `https://${repo.repo}.klepaas.app`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 flex-1 min-w-0"
                       >
                         <Server className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
                         <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate group-hover:underline">
-                          https://{repo.repo}.klepaas.com
+                          {repo.latest_deployment.service_url || `https://${repo.repo}.klepaas.app`}
                         </span>
                         <ExternalLink className="h-3 w-3 text-blue-600 dark:text-blue-400 opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
                       </a>
@@ -317,9 +318,21 @@ export function DeploymentStatusMonitoring({
                         size="sm"
                         variant="ghost"
                         className="shrink-0 h-8 px-3 text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/30"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation()
-                          navigator.clipboard.writeText(`https://${repo.repo}.klepaas.com`)
+                          const url = repo.latest_deployment?.service_url || `https://${repo.repo}.klepaas.app`
+                          try {
+                            await navigator.clipboard.writeText(url)
+                          } catch (error) {
+                            console.error('Failed to copy to clipboard:', error)
+                            // Fallback for older browsers or non-HTTPS
+                            const textArea = document.createElement('textarea')
+                            textArea.value = url
+                            document.body.appendChild(textArea)
+                            textArea.select()
+                            document.execCommand('copy')
+                            document.body.removeChild(textArea)
+                          }
                         }}
                       >
                         Copy
