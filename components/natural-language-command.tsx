@@ -73,178 +73,263 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [isScrollingToMessage, setIsScrollingToMessage] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // 스크롤을 맨 아래로 이동하는 함수
+  // 스크롤을 맨 아래로 이동하는 함수 (다중 방법 시도)
   const scrollToBottom = () => {
-    if (!scrollAreaRef.current) return
-
-    // ScrollArea의 실제 viewport 요소 찾기
-    const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
+    console.log('🔄 스크롤 시도 중...')
     
-    if (viewport) {
-      // 여러 단계로 확실하게 맨 아래로 스크롤
-      const scrollToEnd = () => {
+    if (scrollAreaRef.current) {
+      // ScrollArea의 viewport 요소 찾기
+      const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
+      
+      if (viewport) {
+        console.log('📏 viewport 높이:', viewport.scrollHeight, '현재 스크롤:', viewport.scrollTop)
+        
+        // 방법 1: scrollTop 직접 설정
         viewport.scrollTop = viewport.scrollHeight
+        
+        // 방법 2: scrollTo 사용
         viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
-      }
-      
-      // 즉시 스크롤
-      scrollToEnd()
-      
-      // DOM 업데이트 후 다시 스크롤
-      setTimeout(scrollToEnd, 10)
-      setTimeout(scrollToEnd, 50)
-      setTimeout(scrollToEnd, 100)
-      
-      // 마지막 메시지 요소로 스크롤
-      const lastMessage = viewport.querySelector('[data-message]:last-child')
-      if (lastMessage) {
-        setTimeout(() => {
+        
+        // 방법 3: 마지막 메시지로 scrollIntoView
+        const lastMessage = viewport.querySelector('[data-message]:last-child') as HTMLElement
+        if (lastMessage) {
+          console.log('🎯 마지막 메시지로 scrollIntoView 시도')
           lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
-        }, 150)
+        }
+        
+        // 방법 4: 강제 스타일 변경
+        viewport.style.scrollBehavior = 'auto'
+        viewport.scrollTop = viewport.scrollHeight
+        viewport.style.scrollBehavior = 'smooth'
+        
+        // 방법 5: DOM 조작으로 강제 스크롤
+        const scrollContainer = viewport.parentElement
+        if (scrollContainer) {
+          console.log('🔧 부모 컨테이너 조작 시도')
+          scrollContainer.scrollTop = scrollContainer.scrollHeight
+        }
+        
+        // 방법 6: 전체 페이지 스크롤도 시도
+        setTimeout(() => {
+          console.log('🌐 전체 페이지 스크롤 시도')
+          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+        }, 50)
+        
+        // 추가 확인
+        setTimeout(() => {
+          console.log('✅ 스크롤 후 위치:', viewport.scrollTop)
+        }, 100)
+      } else {
+        console.log('❌ viewport를 찾을 수 없음')
       }
     } else {
-      // fallback: 직접 스크롤
-      const scrollToEnd = () => {
-        if (scrollAreaRef.current) {
-          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
-          scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' })
-        }
-      }
-      
-      scrollToEnd()
-      setTimeout(scrollToEnd, 10)
-      setTimeout(scrollToEnd, 50)
-      setTimeout(scrollToEnd, 100)
+      console.log('❌ scrollAreaRef가 없음')
     }
   }
 
-  // 특정 메시지로 스크롤하는 함수
+  // 특정 메시지로 스크롤하는 함수 (ScrollArea 최적화)
   const scrollToMessage = (messageId: string) => {
-    if (!scrollAreaRef.current) return
+    console.log('🎯 특정 메시지로 스크롤 시도:', messageId)
+    
+    if (!scrollAreaRef.current) {
+      console.log('❌ scrollAreaRef가 없음')
+      return
+    }
 
-    // ScrollArea의 실제 viewport 요소 찾기
+    // ScrollArea의 viewport 요소 찾기
     const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
     
     if (viewport) {
+      console.log('📏 viewport 찾음, 메시지 요소 검색 중...')
+      
       // 특정 메시지 요소 찾기
       const messageElement = viewport.querySelector(`[data-message="${messageId}"]`)
+      
       if (messageElement) {
+        console.log('✅ 메시지 요소 찾음, 스크롤 시도')
+        // 메시지 요소로 스크롤
         messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        
+        // 추가로 viewport 직접 조작도 시도
+        setTimeout(() => {
+          const elementRect = messageElement.getBoundingClientRect()
+          const viewportRect = viewport.getBoundingClientRect()
+          const scrollTop = viewport.scrollTop + (elementRect.top - viewportRect.top) - (viewportRect.height / 2)
+          
+          viewport.scrollTo({ top: scrollTop, behavior: 'smooth' })
+          console.log('📍 viewport 직접 스크롤 완료')
+        }, 100)
+      } else {
+        console.log('❌ 메시지 요소를 찾을 수 없음:', messageId)
+        // 모든 메시지 요소 확인
+        const allMessages = viewport.querySelectorAll('[data-message]')
+        console.log('📋 사용 가능한 메시지 ID들:', Array.from(allMessages).map(el => el.getAttribute('data-message')))
       }
+    } else {
+      console.log('❌ viewport를 찾을 수 없음')
     }
   }
 
-  // 자동 스크롤 - 메시지가 추가되거나 변경될 때 맨 아래로 스크롤
+  // 자동 스크롤 - 새로운 메시지가 추가될 때만 맨 아래로 스크롤 (히스토리 클릭 시 완전 차단)
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      // DOM 업데이트 완료 후 스크롤 (여러 단계로 확실하게)
-      requestAnimationFrame(() => {
-        scrollToBottom()
-        // 추가로 여러 번 스크롤하여 확실하게 맨 아래로
-        setTimeout(() => scrollToBottom(), 50)
-        setTimeout(() => scrollToBottom(), 100)
-        setTimeout(() => scrollToBottom(), 200)
-      })
+    if (messages.length > 0 && !scrollToMessageId && !isScrollingToMessage) {
+      // scrollToMessageId가 없고, 히스토리 클릭 중이 아닐 때만 자동 스크롤
+      // 히스토리 클릭 시에는 자동 스크롤을 완전히 비활성화
+      // 새로운 메시지가 추가될 때만 자동 스크롤을 활성화
+      setTimeout(() => scrollToBottom(), 100)
     }
-  }, [messages])
+  }, [messages, scrollToMessageId, isScrollingToMessage])
 
   // 특정 메시지로 스크롤 (대시보드에서 명령어 클릭 시)
   useEffect(() => {
     if (scrollToMessageId && messages.length > 0) {
+      console.log('🎯 scrollToMessageId 처리:', scrollToMessageId)
+      console.log('📊 현재 메시지 수:', messages.length)
+      
+      // 히스토리 클릭 시 스크롤 상태 설정
+      setIsScrollingToMessage(true)
+      
       // 메시지가 로드된 후 특정 메시지로 스크롤
       setTimeout(() => {
         // 사용자 메시지 ID 찾기
         const userMessageId = `history-${scrollToMessageId}`
+        console.log('🔍 찾는 사용자 메시지 ID:', userMessageId)
         
         // 해당 사용자 메시지 다음의 AI 응답 메시지 찾기
         const userMessageIndex = messages.findIndex(msg => msg.id === userMessageId)
+        console.log('📍 사용자 메시지 인덱스:', userMessageIndex)
+        
         if (userMessageIndex !== -1 && userMessageIndex + 1 < messages.length) {
           // 다음 메시지가 AI 응답인 경우 해당 메시지로 스크롤
           const aiResponseMessage = messages[userMessageIndex + 1]
+          console.log('🤖 AI 응답 메시지:', aiResponseMessage.id, aiResponseMessage.role)
+          
           if (aiResponseMessage.role === 'assistant') {
+            console.log('✅ AI 응답으로 스크롤')
             scrollToMessage(aiResponseMessage.id)
           } else {
             // AI 응답이 없으면 사용자 메시지로 스크롤
+            console.log('⚠️ AI 응답이 아님, 사용자 메시지로 스크롤')
             scrollToMessage(userMessageId)
           }
         } else {
           // AI 응답이 없으면 사용자 메시지로 스크롤
+          console.log('⚠️ AI 응답 없음, 사용자 메시지로 스크롤')
           scrollToMessage(userMessageId)
         }
         
-        // 스크롤 완료 후 콜백 호출하여 부모에서 scrollToMessageId 초기화
-        if (onScrollComplete) {
-          onScrollComplete()
-        }
-      }, 200)
+        // 스크롤 완료 후 상태 초기화 및 콜백 호출
+        // 히스토리 클릭 시에는 자동 스크롤을 비활성화 상태로 유지
+        setTimeout(() => {
+          // 히스토리 클릭 시에는 자동 스크롤을 비활성화 상태로 유지
+          // 새로운 메시지가 추가될 때만 자동 스크롤을 활성화
+          if (onScrollComplete) {
+            onScrollComplete()
+          }
+        }, 1000) // 스크롤 완료 후 콜백 호출
+      }, 500) // 더 긴 지연 시간으로 DOM 업데이트 완료 대기
     }
   }, [scrollToMessageId, messages, onScrollComplete])
+
+  // 컴포넌트 마운트 시 스크롤 초기화 (히스토리 클릭 시 완전 차단)
+  useEffect(() => {
+    if (!scrollToMessageId && !isScrollingToMessage) {
+      console.log('🚀 컴포넌트 마운트됨, 스크롤 시작')
+      
+      // 여러 번 시도하여 확실하게 스크롤
+      setTimeout(() => {
+        console.log('⏰ 200ms 후 스크롤 시도')
+        scrollToBottom()
+      }, 200)
+      
+      setTimeout(() => {
+        console.log('⏰ 500ms 후 스크롤 시도')
+        scrollToBottom()
+      }, 500)
+      
+      setTimeout(() => {
+        console.log('⏰ 1000ms 후 스크롤 시도')
+        scrollToBottom()
+      }, 1000)
+    } else {
+      console.log('🚀 컴포넌트 마운트됨, 하지만 scrollToMessageId가 있거나 히스토리 클릭 중이므로 자동 스크롤 건너뜀')
+    }
+  }, [scrollToMessageId, isScrollingToMessage])
 
   // 세션 초기화 및 대화 히스토리 로드
   useEffect(() => {
     const initializeChat = async () => {
       try {
-        // 기존 대화 세션 목록 조회
-        const conversations = await apiClient.listConversations()
+        // DB에서 직접 명령어 히스토리 조회 (Redis 세션 조회 제거)
+        console.log('🔍 DB에서 명령어 히스토리 조회 중...')
+        const commandHistory = await apiClient.getConversationHistory(50, 0)
+        console.log('📊 조회된 명령어 히스토리:', commandHistory)
         
-        if (conversations.sessions && conversations.sessions.length > 0) {
-          // 가장 최근 세션의 대화 히스토리 로드
-          const latestSession = conversations.sessions[0]
-          setSessionId(latestSession.session_id)
+        if (commandHistory && commandHistory.length > 0) {
+          // command_history를 메시지로 변환
+          const historyMessages: Message[] = commandHistory.map((cmd: any) => ({
+            id: `history-${cmd.id}`,
+            role: cmd.tool === "user_message" ? "user" : "assistant",
+            content: cmd.command_text,
+            timestamp: new Date(cmd.created_at),
+            status: "sent" as const,
+            result: cmd.result,
+          }))
           
-          // 대화 히스토리 로드 (사용자 메시지와 AI 응답 모두)
-          const commandHistory = await apiClient.getConversationHistory(50, 0)
+          console.log('✅ 변환된 메시지들:', historyMessages)
+          setMessages(historyMessages)
           
-          if (commandHistory && commandHistory.length > 0) {
-            // command_history를 메시지로 변환
-            const historyMessages: Message[] = commandHistory.map((cmd: any) => ({
-              id: `history-${cmd.id}`,
-              role: cmd.tool === "user_message" ? "user" : "assistant",
-              content: cmd.command_text,
-              timestamp: new Date(cmd.created_at),
-              status: "sent" as const,
-              result: cmd.result,
-            }))
-            
-            setMessages(historyMessages)
-            
-            // 대화 히스토리 로딩 후 스크롤을 맨 아래로 이동
+          // 대화 히스토리 로딩 후 스크롤을 맨 아래로 이동 (히스토리 클릭 시 완전 차단)
+          if (!scrollToMessageId && !isScrollingToMessage) {
             setTimeout(() => {
+              console.log('📜 히스토리 로드 후 스크롤 시도')
               scrollToBottom()
             }, 100)
+            
+            setTimeout(() => {
+              console.log('📜 히스토리 로드 후 추가 스크롤 시도')
+              scrollToBottom()
+            }, 300)
+            
+            setTimeout(() => {
+              console.log('📜 히스토리 로드 후 최종 스크롤 시도')
+              scrollToBottom()
+            }, 600)
           } else {
-            // 대화 히스토리가 없으면 환영 메시지 표시
-            setMessages([
-              {
-                id: "welcome",
-                role: "system",
-                content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 클러스터 관리, 비용 분석 등을 도와드릴게요. 무엇을 도와드릴까요?",
-                timestamp: new Date(),
-              },
-            ])
+            console.log('📜 히스토리 로드됨, 하지만 scrollToMessageId가 있거나 히스토리 클릭 중이므로 자동 스크롤 건너뜀')
           }
         } else {
-          // 세션이 없으면 환영 메시지 표시
+          console.log('⚠️ 명령어 히스토리가 비어있음 - 환영 메시지 표시')
+          // 명령어 히스토리가 없으면 환영 메시지 표시
           setMessages([
             {
               id: "welcome",
               role: "system",
-              content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 클러스터 관리, 비용 분석 등을 도와드릴게요. 무엇을 도와드릴까요?",
+              content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 🚀\n\nKubernetes 리소스 관리, 배포, 롤백을 자연어로 도와드릴게요. 💬\n\n무엇을 도와드릴까요?",
               timestamp: new Date(),
             },
           ])
         }
+        
+        // 새로운 대화를 위해 세션 ID 초기화
+        setSessionId(null)
       } catch (error) {
-        console.error("대화 히스토리 로드 실패:", error)
+        console.error("❌ 대화 히스토리 로드 실패:", error)
+        console.error("🔍 에러 상세:", {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : 'Unknown'
+        })
         // 에러 시 환영 메시지 표시
         setMessages([
           {
             id: "welcome",
             role: "system",
-            content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 클러스터 관리, 비용 분석 등을 도와드릴게요. 무엇을 도와드릴까요?",
+            content: "안녕하세요! K-Le-PaaS AI 어시스턴트입니다. 🚀\n\nKubernetes 리소스 관리, 배포, 롤백을 자연어로 도와드릴게요. 💬\n\n무엇을 도와드릴까요?",
             timestamp: new Date(),
           },
         ])
@@ -292,6 +377,9 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setLoading(true)
+    
+    // 새로운 메시지 추가 시 자동 스크롤 활성화
+    setIsScrollingToMessage(false)
 
     try {
       // Conversation API 호출
@@ -448,8 +536,17 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
     if (isSystem) {
       return (
         <div key={message.id} className="flex justify-center my-4">
-          <div className="bg-muted px-4 py-2 rounded-full text-sm text-muted-foreground max-w-md text-center">
-            {message.content}
+          <div className="bg-muted/50 px-4 py-3 rounded-lg text-sm text-muted-foreground max-w-md text-center border">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+              <span className="font-medium text-foreground">K-Le-PaaS AI</span>
+              <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-foreground">안녕하세요! 🚀</p>
+              <p className="text-xs text-muted-foreground">Kubernetes 리소스 관리, 배포, 롤백을 자연어로 도와드릴게요.</p>
+              <p className="text-xs text-primary">💬 무엇을 도와드릴까요?</p>
+            </div>
           </div>
         </div>
       )
@@ -478,7 +575,7 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
                 : "bg-muted",
             )}
           >
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: message.content.replace(/\n/g, '<br/>') }}></p>
 
             {message.cost_estimate && renderCostEstimate(message.cost_estimate)}
 
@@ -565,10 +662,10 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
         <CardHeader className="border-b">
           <CardTitle className="flex items-center space-x-2">
             <Terminal className="w-5 h-5" />
-            <span>AI 어시스턴트</span>
+            <span>AI Assistance</span>
           </CardTitle>
           <CardDescription>
-            자연어로 클러스터를 관리하고 비용을 분석하세요
+            Kubernetes 리소스 관리, 배포, 롤백을 자연어로 실행하세요
           </CardDescription>
         </CardHeader>
 
