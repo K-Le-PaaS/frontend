@@ -373,6 +373,44 @@ export function NaturalLanguageCommand({ onNavigateToPipelines }: NaturalLanguag
                     inputRef.current?.focus()
                   }}
                   onNavigateToPipelines={onNavigateToPipelines}
+                  onCommandSubmit={async (command, args) => {
+                    // 비용 분석 명령어 직접 실행
+                    try {
+                      console.log("onCommandSubmit - command:", command, "args:", args)
+                      const response = await apiClient.sendConversationMessage({
+                        command: command,
+                        session_id: sessionId || undefined,
+                        timestamp: new Date().toISOString(),
+                        parameters: args
+                      })
+
+                      console.log("onCommandSubmit - response:", response)
+                      console.log("onCommandSubmit - response.result:", response.result)
+                      console.log("onCommandSubmit - response.result.type:", response.result?.type)
+
+                      // 응답을 메시지로 추가
+                      const assistantMessage: Message = {
+                        id: `assistant-${Date.now()}`,
+                        role: "assistant",
+                        content: response.message || "작업을 완료했습니다.",
+                        timestamp: new Date(),
+                        result: response.result,
+                        cost_estimate: response.cost_estimate,
+                      }
+                      console.log("onCommandSubmit - assistantMessage:", assistantMessage)
+                      setMessages((prev) => [...prev, assistantMessage])
+                    } catch (err: any) {
+                      console.error("Command execution failed:", err)
+                      const errorMessage: Message = {
+                        id: `error-${Date.now()}`,
+                        role: "assistant",
+                        content: `명령 실행 중 오류가 발생했습니다: ${err.message}`,
+                        timestamp: new Date(),
+                        status: "error"
+                      }
+                      setMessages((prev) => [...prev, errorMessage])
+                    }
+                  }}
                 />
               </div>
             )}

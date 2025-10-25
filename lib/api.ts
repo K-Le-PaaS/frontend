@@ -369,6 +369,7 @@ class ApiClient {
     session_id?: string
     timestamp: string
     context?: any
+    parameters?: any
   }): Promise<any> {
     return this.request<any>('/api/v1/nlp/conversation', {
       method: 'POST',

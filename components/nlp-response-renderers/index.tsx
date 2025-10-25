@@ -30,9 +30,14 @@ interface NLPResponseRendererProps {
   response: NLPResponse
   onRollbackClick?: (version: any) => void
   onNavigateToPipelines?: () => void
+  onCommandSubmit?: (command: string, args: any) => void
 }
 
-export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPipelines }: NLPResponseRendererProps) {
+export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPipelines, onCommandSubmit }: NLPResponseRendererProps) {
+  console.log("🔍 NLPResponseRenderer - response:", response)
+  console.log("🔍 NLPResponseRenderer - response.type:", response.type)
+  console.log("🔍 NLPResponseRenderer - response.data:", response.data)
+
   // 에러 응답 처리
   if (response.type === 'error') {
     return (
@@ -139,7 +144,7 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
       return <OverviewRenderer response={response} />
     
     case 'cost_analysis':
-      return <CostAnalysisRenderer response={response} />
+      return <CostAnalysisRenderer response={response} onCommandSubmit={onCommandSubmit} />
     
     case 'deploy':
     case 'deploy_github_repository':
