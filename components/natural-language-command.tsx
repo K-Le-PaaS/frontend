@@ -36,6 +36,7 @@ interface Message {
   cost_estimate?: CostEstimate
   pending_action?: PendingAction
   result?: Record<string, any>
+  metadata?: Record<string, any>
 }
 
 interface CostEstimate {
@@ -577,7 +578,8 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
           >
             <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: message.content.replace(/\n/g, '<br/>') }}></p>
 
-            {message.cost_estimate && renderCostEstimate(message.cost_estimate)}
+            {/* 비용 정보 표시 (스케일링 명령 제외) */}
+            {message.cost_estimate && message.pending_action?.type !== "scale" && renderCostEstimate(message.cost_estimate)}
 
             {/* 확인이 필요한 작업 */}
             {message.pending_action && (
@@ -621,10 +623,10 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
             )}
 
             {/* 실행 결과 (AI 응답에만) */}
-            {message.result && message.role === "assistant" && (
+            {(message.result || message.metadata?.result) && message.role === "assistant" && (
               <div className="mt-4">
                 <NLPResponseRenderer 
-                  response={message.result as NLPResponse}
+                  response={(message.result || message.metadata?.result) as NLPResponse}
                   onRollbackClick={(version) => {
                     // 롤백 버튼 클릭 시 커밋 해시 기반 자연어 명령 자동 입력
                     const rollbackCommand = `${version.commit}로 롤백해줘`
