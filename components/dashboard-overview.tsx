@@ -232,7 +232,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{repo.fullName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {repo.branch} • {formatTimeAgo(new Date(repo.lastSync))}
+                        {repo.branch} • {formatTimeAgo(repo.lastSync)}
                       </p>
                     </div>
                   </div>
@@ -275,7 +275,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{pr.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        by @{pr.author} • {formatTimeAgo(new Date(pr.createdAt))}
+                        by @{pr.author} • {formatTimeAgo(pr.createdAt)}
                       </p>
                     </div>
                   </div>
