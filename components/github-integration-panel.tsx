@@ -193,10 +193,10 @@ interface GitHubIntegrationPanelProps {
 
 export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "repositories" }: GitHubIntegrationPanelProps = {}) {
   // slackConnected는 DB 조회로 최종 결정
-  const [newRepoUrl, setNewRepoUrl] = useState("")
+  const [newRepoOwner, setNewRepoOwner] = useState("")
+  const [newRepoName, setNewRepoName] = useState("")
   const [repos, setRepos] = useState<Repository[] | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(initialTab)
   
   // 사용자 인증 정보 가져오기
@@ -442,7 +442,12 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
         console.log('[GitHubIntegrationPanel] integrations.length =', mapped.length, mapped)
         setRepos(mapped)
       } catch (e: any) {
-        setError(e?.message || "Failed to load integrations")
+        console.error("Failed to load integrations:", e)
+        toast({
+          title: "로딩 실패",
+          description: "연동된 레포지토리 목록을 불러오는데 실패했습니다.",
+          variant: "destructive"
+        })
         setRepos(null)
       } finally {
         setLoading(false)
@@ -866,27 +871,56 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
   }
 
   const handleConnectRepo = async () => {
-    if (!newRepoUrl.trim()) {
-      setError("Please enter a repository URL")
+    // Validation
+    if (!newRepoOwner.trim() || !newRepoName.trim()) {
+      toast({
+        title: "입력 오류",
+        description: "사용자명과 레포지토리 이름을 모두 입력해주세요.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Check for URL format (should only be owner/repo)
+    if (newRepoOwner.includes('/') || newRepoOwner.includes('http') ||
+        newRepoName.includes('/') || newRepoName.includes('http')) {
+      toast({
+        title: "입력 오류",
+        description: "전체 URL이 아닌 사용자명과 레포지토리 이름만 입력해주세요.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // GitHub username/repo validation (alphanumeric, hyphens, underscores)
+    const githubNameRegex = /^[a-zA-Z0-9_-]+$/
+    if (!githubNameRegex.test(newRepoOwner)) {
+      toast({
+        title: "입력 오류",
+        description: "사용자명에는 영문자, 숫자, 하이픈, 언더스코어만 사용할 수 있습니다.",
+        variant: "destructive"
+      })
+      return
+    }
+    if (!githubNameRegex.test(newRepoName)) {
+      toast({
+        title: "입력 오류",
+        description: "레포지토리 이름에는 영문자, 숫자, 하이픈, 언더스코어만 사용할 수 있습니다.",
+        variant: "destructive"
+      })
       return
     }
 
     try {
       setLoading(true)
-      setError(null)
-      
-      // Extract repository name from URL
-      const repoName = newRepoUrl.split('/').pop()?.replace('.git', '') || 'unknown'
-      const projectId = `project-${Date.now()}` // Generate a unique project ID
-      
-      console.log("Connecting repository:", newRepoUrl)
-      
-      // Call the API to connect the repository
-      console.log("API 호출 시작:", { newRepoUrl, projectId, repoName })
-      const result = await apiClient.connectRepository(newRepoUrl, projectId, repoName)
-      
+
+      console.log("Connecting repository:", { owner: newRepoOwner, repo: newRepoName })
+
+      // Call the API to connect the repository with owner and repo
+      const result = await apiClient.connectRepository(newRepoOwner, newRepoName)
+
       console.log("Repository connection result:", result)
-      
+
       // Refresh the integrations list
       const data = await apiClient.getProjectIntegrations()
       const mapped: Repository[] = (Array.isArray(data) ? data : []).map((r: any, idx: number) => ({
@@ -902,12 +936,51 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
         htmlUrl: `https://github.com/${r.github_full_name}`,
       }))
       setRepos(mapped)
-      setNewRepoUrl("")
-      
+
+      // Clear input fields
+      setNewRepoOwner("")
+      setNewRepoName("")
+
+      // 성공 Toast 표시
+      toast({
+        title: "연동 성공",
+        description: `${newRepoOwner}/${newRepoName} 레포지토리가 성공적으로 연동되었습니다.`,
+        variant: "default"
+      })
+
     } catch (error: any) {
       console.error("Failed to connect repository:", error)
+
+      // 에러 메시지를 사용자 친화적으로 변환
+      let userFriendlyMessage = "레포지토리 연동에 실패했습니다."
       
-      setError(error?.message || "Failed to connect repository")
+      if (error?.message) {
+        // HTTP 에러 메시지 파싱
+        if (error.message.includes("GitHub App이 레포지토리")) {
+          userFriendlyMessage = "GitHub App이 해당 레포지토리에 설치되지 않았습니다. GitHub에서 앱을 설치해주세요."
+        } else if (error.message.includes("401")) {
+          userFriendlyMessage = "GitHub 인증이 필요합니다. 다시 로그인해주세요."
+        } else if (error.message.includes("403")) {
+          userFriendlyMessage = "해당 레포지토리에 접근 권한이 없습니다."
+        } else if (error.message.includes("404")) {
+          userFriendlyMessage = "레포지토리를 찾을 수 없습니다. 이름을 확인해주세요."
+        } else if (error.message.includes("already connected")) {
+          userFriendlyMessage = "이미 연동된 레포지토리입니다."
+        } else {
+          // 일반적인 에러 메시지에서 사용자 친화적인 부분만 추출
+          const match = error.message.match(/"message":"([^"]+)"/)
+          if (match) {
+            userFriendlyMessage = match[1]
+          }
+        }
+      }
+
+      // Toast로 에러 표시
+      toast({
+        title: "연동 실패",
+        description: userFriendlyMessage,
+        variant: "destructive"
+      })
     } finally {
       setLoading(false)
     }
@@ -1178,16 +1251,38 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
             </CardHeader>
             <CardContent>
               <div className="flex space-x-2">
-                <Input
-                  placeholder="https://github.com/username/repository"
-                  value={newRepoUrl}
-                  onChange={(e) => setNewRepoUrl(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={handleConnectRepo}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Connect
-                </Button>
+                <div className="flex-1 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label htmlFor="repo-owner" className="text-sm font-medium mb-1 block">
+                        GitHub 사용자명 또는 조직명
+                      </label>
+                      <Input
+                        id="repo-owner"
+                        placeholder="K-Le-PaaS"
+                        value={newRepoOwner}
+                        onChange={(e) => setNewRepoOwner(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="repo-name" className="text-sm font-medium mb-1 block">
+                        레포지토리 이름
+                      </label>
+                      <Input
+                        id="repo-name"
+                        placeholder="frontend"
+                        value={newRepoName}
+                        onChange={(e) => setNewRepoName(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={handleConnectRepo}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Connect
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1200,7 +1295,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {error && <div className="text-sm text-red-500">{error}</div>}
                 {loading && !repos && <div className="text-sm text-muted-foreground">Loading...</div>}
                 {(repos || []).map((repo, idx) => (
                   <div key={`${repo.fullName}-${idx}`} className="border rounded-lg p-4">

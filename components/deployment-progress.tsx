@@ -194,27 +194,29 @@ export function DeploymentProgress({
       const runningStage = stageValues.find(stage => stage.status === null)
       if (runningStage && typeof runningStage.progress === "number") {
         // Use real-time progress from WebSocket
-        const runningStageIndex = stageValues.findIndex(stage => stage.status === null)
+        const runningStageIndex = Math.max(0, stageValues.findIndex(stage => stage.status === null))
         const progressFromCompletedStages = (runningStageIndex / totalStages) * 100
-        const progressFromCurrentStage = (runningStage.progress / totalStages)
+        const progressFromCurrentStage = (runningStage.progress / 100) * (100 / totalStages)
         
-        setCurrentProgress(progressFromCompletedStages + progressFromCurrentStage)
+        const totalProgress = Math.max(0, Math.min(100, progressFromCompletedStages + progressFromCurrentStage))
+        setCurrentProgress(totalProgress)
         setIsAnimating(true)
       } else {
         // Fallback to simulated progress
         const stageProgress = 50
-        const runningStageIndex = stageValues.findIndex(stage => stage.status === null)
+        const runningStageIndex = Math.max(0, stageValues.findIndex(stage => stage.status === null))
         const progressFromCompletedStages = (runningStageIndex / totalStages) * 100
-        const progressFromCurrentStage = (stageProgress / totalStages)
+        const progressFromCurrentStage = (stageProgress / 100) * (100 / totalStages)
         
-        setCurrentProgress(progressFromCompletedStages + progressFromCurrentStage)
+        const totalProgress = Math.max(0, Math.min(100, progressFromCompletedStages + progressFromCurrentStage))
+        setCurrentProgress(totalProgress)
         setIsAnimating(true)
       }
     } else if (status === "success" || status === "completed") {
       setCurrentProgress(100)
       setIsAnimating(false)
     } else {
-      setCurrentProgress(baseProgress)
+      setCurrentProgress(Math.max(0, baseProgress))
       setIsAnimating(false)
     }
   }, [stages, status])
