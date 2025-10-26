@@ -227,14 +227,13 @@ class ApiClient {
     return this.request(`/api/v1/github/repositories/connected?t=${ts}`)
   }
 
-  async connectRepository(repoUrl: string, projectId: string, repoName: string) {
+  async connectRepository(owner: string, repo: string) {
     const userId = this.getCurrentUserId()
     return this.request('/api/v1/projects/github/connect', {
       method: 'POST',
       body: JSON.stringify({
-        repo_url: repoUrl,
-        project_id: projectId,
-        repo_name: repoName,
+        owner: owner,
+        repo: repo,
         user_id: userId, // 명시적으로 user_id 추가
       }),
     })
