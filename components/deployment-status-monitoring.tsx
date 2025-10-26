@@ -38,6 +38,7 @@ import { RollbackDialog } from "@/components/rollback-dialog"
 import { ScaleDialog } from "@/components/scale-dialog"
 import { RestartDialog } from "@/components/restart-dialog"
 import { formatDuration } from "@/lib/utils"
+import { formatImageDisplay } from "@/lib/utils/image-formatter"
 
 interface RepositoryWorkload {
   owner: string
@@ -353,7 +354,7 @@ export function DeploymentStatusMonitoring({
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Image</p>
                       <p className="font-mono text-sm truncate">
-                        {repo.latest_deployment.image.name}:{repo.latest_deployment.image.tag}
+                        {formatImageDisplay(repo.owner, repo.repo, repo.latest_deployment.image.tag)}
                       </p>
                     </div>
 
@@ -401,7 +402,7 @@ export function DeploymentStatusMonitoring({
                         <div>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                             <Clock className="h-3 w-3" />
-                            Build Time
+                            Deploy Time
                           </div>
                           <p className="text-sm font-medium">
                             {formatDuration(repo.latest_deployment.timing.total_duration)}
@@ -585,13 +586,7 @@ export function DeploymentStatusMonitoring({
                     <div>
                       <p className="text-sm text-muted-foreground">Image</p>
                       <p className="mt-1 font-mono text-sm">
-                        {selectedRepo.latest_deployment.image.name}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Tag</p>
-                      <p className="mt-1 font-mono text-sm">
-                        {selectedRepo.latest_deployment.image.tag}
+                        {formatImageDisplay(selectedRepo.owner, selectedRepo.repo, selectedRepo.latest_deployment.image.tag)}
                       </p>
                     </div>
                     <div>

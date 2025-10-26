@@ -10,6 +10,7 @@ import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, G
 import { apiClient, api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
+import { formatImageDisplay } from "@/lib/utils/image-formatter"
 import { RecentCommands } from "@/components/recent-commands"
 
 interface ConnectedRepository {
@@ -396,7 +397,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span className="font-mono bg-muted px-1 rounded">
-                              {repo.latest_deployment.image.tag}
+                              {formatImageDisplay(repo.owner, repo.repo, repo.latest_deployment.image.tag)}
                             </span>
                             <span>•</span>
                             <span>
