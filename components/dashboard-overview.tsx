@@ -6,11 +6,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye, Zap } from "lucide-react"
+import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye, Zap, GitPullRequest } from "lucide-react"
 import { apiClient, api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
 import { RecentCommands } from "@/components/recent-commands"
+
+interface ConnectedRepository {
+  id: string
+  name: string
+  fullName: string
+  branch: string
+  lastSync: string
+}
+
+interface PullRequest {
+  id: string
+  number: number
+  title: string
+  author: string
+  status: string
+  createdAt: string
+  htmlUrl: string
+}
 
 interface DashboardData {
   clusters: number
@@ -23,6 +41,8 @@ interface DashboardData {
     service: string
     status: 'healthy' | 'warning' | 'error'
   }>
+  connectedRepositories: ConnectedRepository[]
+  pullRequests: PullRequest[]
 }
 
 interface RepositoryWorkload {
@@ -61,9 +81,11 @@ interface RepositoryWorkload {
 interface DashboardOverviewProps {
   onNavigateToDeployments?: () => void
   onNavigateToChat?: (commandId: number) => void
+  onNavigateToRepositories?: () => void
+  onNavigateToPullRequests?: () => void
 }
 
-export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat }: DashboardOverviewProps) {
+export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, onNavigateToRepositories, onNavigateToPullRequests }: DashboardOverviewProps) {
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
@@ -197,23 +219,87 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat }:
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Clusters</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Connected Repositories</CardTitle>
+            <Github className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.clusters}</div>
-            <p className="text-xs text-muted-foreground">+1 from last month</p>
+            <div className="space-y-3">
+              {data.connectedRepositories && data.connectedRepositories.length > 0 ? (
+                data.connectedRepositories.map((repo) => (
+                  <div key={repo.id} className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{repo.fullName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {repo.branch} • {formatTimeAgo(new Date(repo.lastSync))}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-2">
+                  <p className="text-sm text-muted-foreground">No repositories connected</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 pt-3 border-t">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full text-xs"
+                onClick={() => {
+                  if (onNavigateToRepositories) {
+                    onNavigateToRepositories()
+                  } else {
+                    router.push('/github')
+                  }
+                }}
+              >
+                View All
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Deployments</CardTitle>
-            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Pull Requests</CardTitle>
+            <GitPullRequest className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.deployments}</div>
-            <p className="text-xs text-muted-foreground">{`${data.pendingDeployments} pending, ${data.activeDeployments} active`}</p>
+            <div className="space-y-3">
+              {data.pullRequests && data.pullRequests.length > 0 ? (
+                data.pullRequests.map((pr) => (
+                  <div key={pr.id} className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{pr.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        by @{pr.author} • {formatTimeAgo(new Date(pr.createdAt))}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-2">
+                  <p className="text-sm text-muted-foreground">No pull requests</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 pt-3 border-t">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full text-xs"
+                onClick={() => {
+                  if (onNavigateToPullRequests) {
+                    onNavigateToPullRequests()
+                  } else {
+                    router.push('/github')
+                  }
+                }}
+              >
+                View All
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
