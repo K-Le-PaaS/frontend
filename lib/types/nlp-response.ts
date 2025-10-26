@@ -184,15 +184,21 @@ export interface CostAnalysisMetadata {
 
 // 스케일링 관련 타입
 export interface ScaleData {
-  owner: string
-  repo: string
-  replicas: number
+  repository: string
+  old_replicas: number
+  new_replicas: number
+  change: string
+  status: string
+  timestamp: string
+  action: string
 }
 
 export interface ScaleMetadata {
   owner: string
   repo: string
-  replicas: number
+  old_replicas: number
+  new_replicas: number
+  status: string
 }
 
 // 배포 관련 타입

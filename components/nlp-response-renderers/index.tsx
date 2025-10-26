@@ -15,6 +15,7 @@ import { LogsRenderer } from "./LogsRenderer"
 import { OverviewRenderer } from "./OverviewRenderer"
 import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 import { DeployResponseRenderer } from "./DeployResponseRenderer"
+import { ScaleRenderer } from "./ScaleRenderer"
 // import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
 // import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
 // import { OverviewRenderer } from "./OverviewRenderer"
@@ -33,6 +34,11 @@ interface NLPResponseRendererProps {
 }
 
 export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPipelines }: NLPResponseRendererProps) {
+  
+  // 디버깅을 위한 콘솔 로그
+  console.log('NLPResponseRenderer - response:', response)
+  console.log('NLPResponseRenderer - response.type:', response.type)
+  
   // 에러 응답 처리
   if (response.type === 'error') {
     return (
@@ -157,8 +163,8 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     case 'endpoint':
       return <EndpointRenderer response={response} />
     
-    // case 'scale':
-    //   return <ScaleRenderer response={response} />
+    case 'scale':
+      return <ScaleRenderer response={response} />
     
     // case 'deploy':
     //   return <DeployRenderer response={response} />
