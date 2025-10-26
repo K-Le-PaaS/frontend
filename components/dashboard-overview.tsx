@@ -142,7 +142,9 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
             { service: "Kubernetes API", status: "healthy" },
             { service: "GitHub Integration", status: "warning" },
             { service: "Monitoring", status: "healthy" }
-          ]
+          ],
+          connectedRepositories: [],
+          pullRequests: []
         })
       } finally {
         setLoading(false)
