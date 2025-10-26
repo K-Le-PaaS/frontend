@@ -78,6 +78,14 @@ export default function HomePage() {
         return <DashboardOverview 
           onNavigateToDeployments={() => setActiveView("deployments")}
           onNavigateToChat={handleNavigateToChat}
+          onNavigateToRepositories={() => {
+            setGithubInitialTab("repositories")
+            setActiveView("github")
+          }}
+          onNavigateToPullRequests={() => {
+            setGithubInitialTab("pullrequests")
+            setActiveView("github")
+          }}
         />
     }
   }
