@@ -24,9 +24,9 @@ export function ScaleRenderer({ response }: ScaleRendererProps) {
   const timestamp = scaleData.timestamp || ''
   const action = scaleData.action || '스케일링'
 
-  // metadata에서 owner/repo 추출 (표시용)
-  const owner = metadata?.owner || ''
-  const repo = metadata?.repo || ''
+  // metadata에서 owner/repo 추출 (표시용) - 타입 안전성 확보
+  const owner = (metadata && 'owner' in metadata) ? metadata.owner : ''
+  const repo = (metadata && 'repo' in metadata) ? metadata.repo : ''
 
   const isSuccess = status === '성공' || status === 'success'
   const replicaChange = new_replicas - old_replicas
