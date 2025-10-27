@@ -17,6 +17,7 @@ import {
   DollarSign,
   TrendingDown,
   AlertTriangle,
+  AlertCircle,
   CheckCircle,
   XCircle,
   Loader2,
@@ -412,14 +413,18 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
         }
         setMessages((prev) => [...prev, confirmMessage])
       } else {
-        // 일반 응답
+        // 에러 응답인지 확인
+        const hasError = response.result?.error || response.result?.type === "command_error"
+        
+        // 일반 응답 또는 에러 응답
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}`,
           role: "assistant",
           content: response.message || "작업을 완료했습니다.",
           timestamp: new Date(),
-          result: response.result,
+          result: hasError ? null : response.result, // 에러인 경우 result를 null로 설정하여 NLPResponseRenderer 호출 방지
           cost_estimate: response.cost_estimate,
+          status: hasError ? "error" : "sent",
         }
         setMessages((prev) => [...prev, assistantMessage])
       }
@@ -573,10 +578,21 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
               "px-4 py-2 rounded-lg",
               isUser
                 ? "bg-primary text-primary-foreground"
-                : "bg-muted",
+                : message.status === "error" 
+                  ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900"
+                  : "bg-muted",
             )}
           >
-            <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: message.content.replace(/\n/g, '<br/>') }}></p>
+            {message.status === "error" && !isUser && (
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-300 mb-2">
+                <AlertCircle className="w-4 h-4" />
+                <span className="font-semibold text-sm">오류 발생</span>
+              </div>
+            )}
+            <p className={cn(
+              "text-sm whitespace-pre-wrap",
+              message.status === "error" && !isUser && "text-red-800 dark:text-red-200"
+            )} dangerouslySetInnerHTML={{ __html: message.content.replace(/\n/g, '<br/>') }}></p>
 
             {/* 비용 정보 표시 (스케일링 명령 제외) */}
             {message.cost_estimate && message.pending_action?.type !== "scale" && renderCostEstimate(message.cost_estimate)}
