@@ -140,7 +140,9 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     
     case 'logs':
       return <LogsRenderer response={response} />
-    
+    case 'list_endpoints':
+       return <EndpointListRenderer response={response} />
+       
     case 'overview':
       return <OverviewRenderer response={response} />
     
