@@ -11,6 +11,7 @@ import { ServiceListRenderer } from "./ServiceListRenderer"
 import { DeploymentListRenderer } from "./DeploymentListRenderer"
 import { IngressListRenderer } from "./IngressListRenderer"
 import { NamespaceListRenderer } from "./NamespaceListRenderer"
+import { EndpointListRenderer } from "./EndpointListRenderer"
 import { LogsRenderer } from "./LogsRenderer"
 import { OverviewRenderer } from "./OverviewRenderer"
 import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
@@ -137,6 +138,9 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     
     case 'list_namespaces':
       return <NamespaceListRenderer response={response} />
+    
+    case 'list_endpoints':
+      return <EndpointListRenderer response={response} />
     
     case 'logs':
       return <LogsRenderer response={response} />

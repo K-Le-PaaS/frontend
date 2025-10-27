@@ -14,6 +14,7 @@ export type NLPResponseType =
   | 'list_services'
   | 'list_ingresses'
   | 'list_namespaces'
+  | 'list_endpoints'
   | 'get_service'
   | 'get_deployment'
   | 'overview'
@@ -138,6 +139,11 @@ export interface IngressInfo {
   namespace: string
   class: string
   hosts: string[]
+  urls?: string[]
+  has_tls?: boolean
+  service_name?: string
+  port?: number | string
+  path?: string
   address: string
   ports: string | object
   age: string
@@ -264,6 +270,40 @@ export interface EndpointMetadata {
   total_endpoints: number
 }
 
+// 엔드포인트 목록 관련 타입
+export interface EndpointListInfo {
+  service_name: string
+  service_type: string
+  cluster_ip: string
+  ports: Array<{
+    port: number | string
+    target_port: number | string
+    protocol: string
+    node_port?: number
+  }>
+  service_endpoint?: string
+  ingress_domains: Array<{
+    domain: string
+    path: string
+    ingress_name?: string
+  }>
+  external_access?: {
+    type: string
+    address: string
+    ports: Array<{
+      port: number | string
+      protocol: string
+    }>
+  }
+}
+
+export interface EndpointListMetadata {
+  namespace: string
+  total_services: number
+  services_with_ingress: number
+  services_with_external: number
+}
+
 // 통합 대시보드 관련 타입
 export interface OverviewData {
   namespace: string
@@ -335,6 +375,7 @@ export type ResponseData =
   | DeploymentInfo[]
   | IngressInfo[]
   | NamespaceInfo[]
+  | EndpointListInfo[]
   | ServiceEndpointsData
   | OverviewData
   | ScaleData
@@ -354,6 +395,7 @@ export type ResponseMetadata =
   | StatusMetadata
   | LogsMetadata
   | EndpointMetadata
+  | EndpointListMetadata
   | OverviewMetadata
   | ScaleMetadata
   | DeployMetadata
@@ -474,6 +516,15 @@ export interface EndpointResponse extends FormattedResponse {
   metadata: EndpointMetadata
 }
 
+export interface EndpointListResponse extends FormattedResponse {
+  type: 'list_endpoints'
+  data: {
+    formatted: EndpointListInfo[]
+    raw?: any
+  }
+  metadata: EndpointListMetadata
+}
+
 export interface ScaleResponse extends FormattedResponse {
   type: 'scale'
   data: {
@@ -590,6 +641,7 @@ export type NLPResponse =
   | DeploymentListResponse
   | IngressListResponse
   | NamespaceListResponse
+  | EndpointListResponse
   | ServiceDetailResponse
   | DeploymentDetailResponse
   | OverviewResponse
