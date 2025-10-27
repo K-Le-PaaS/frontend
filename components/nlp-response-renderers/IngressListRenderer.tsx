@@ -88,12 +88,12 @@ export function IngressListRenderer({ response }: IngressListRendererProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>이름</TableHead>
-                <TableHead>클래스</TableHead>
-                <TableHead>호스트</TableHead>
-                <TableHead>주소</TableHead>
-                <TableHead>포트</TableHead>
-                <TableHead>경과 시간</TableHead>
-                <TableHead>네임스페이스</TableHead>
+                <TableHead>대상 서비스</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>대상 포트</TableHead>
+                <TableHead>경로 (Path)</TableHead>
+                <TableHead>보안 리디렉션</TableHead>
+                <TableHead>접속 URL</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -112,34 +112,66 @@ export function IngressListRenderer({ response }: IngressListRendererProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {getIngressClassBadge(ingress.class)}
+                    <span className="font-mono text-purple-600 text-sm">
+                      {ingress.service_name || '-'}
+                    </span>
                   </TableCell>
                   <TableCell>
-                    <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                      {Array.isArray(ingress.hosts) 
-                        ? ingress.hosts.join(', ') 
-                        : ingress.hosts}
-                    </code>
+                    {ingress.has_tls ? (
+                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        🟢 활성 (HTTPS)
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        🟡 활성 (HTTP)
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
-                    {getAddressDisplay(ingress.address)}
+                    <span className="font-mono text-blue-600 text-sm">
+                      {ingress.port || '-'}
+                    </span>
                   </TableCell>
                   <TableCell>
-                    <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                      {typeof ingress.ports === 'object' 
-                        ? JSON.stringify(ingress.ports) 
-                        : ingress.ports}
-                    </code>
+                    <span className="font-mono text-blue-600 text-sm">
+                      {ingress.path || '/'}
+                    </span>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {ingress.age}
-                    </Badge>
+                    {ingress.has_tls ? (
+                      <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        사용 중
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        미사용
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {ingress.namespace}
-                    </Badge>
+                    {ingress.urls && ingress.urls.length > 0 ? (
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={ingress.urls[0]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {ingress.urls[0]}
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(ingress.urls![0])}
+                          title="URL 복사"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
