@@ -75,5 +75,5 @@ export function formatImageFromUrl(fullImageUrl: string): string {
   const imageName = fullImageUrl.substring(0, lastColonIndex)
   const imageTag = fullImageUrl.substring(lastColonIndex + 1)
 
-  return formatImageDisplay(imageName, imageTag)
+  return formatImageDisplayFromName(imageName, imageTag)
 }
