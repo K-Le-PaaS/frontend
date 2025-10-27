@@ -11,25 +11,24 @@ import { ServiceListRenderer } from "./ServiceListRenderer"
 import { DeploymentListRenderer } from "./DeploymentListRenderer"
 import { IngressListRenderer } from "./IngressListRenderer"
 import { NamespaceListRenderer } from "./NamespaceListRenderer"
-import { EndpointListRenderer } from "./EndpointListRenderer"
 import { LogsRenderer } from "./LogsRenderer"
 import { OverviewRenderer } from "./OverviewRenderer"
 import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 import { DeployResponseRenderer } from "./DeployResponseRenderer"
 import { ScaleRenderer } from "./ScaleRenderer"
+import { RestartRenderer } from "./RestartRenderer"
 // import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
 // import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
 // import { OverviewRenderer } from "./OverviewRenderer"
 // import { EndpointRenderer } from "./EndpointRenderer"
 // import { ScaleRenderer } from "./ScaleRenderer"
 // import { DeployRenderer } from "./DeployRenderer"
-// import { RestartRenderer } from "./RestartRenderer"
 // import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 // import { ErrorRenderer } from "./ErrorRenderer"
 import { EndpointRenderer } from "./EndpointRenderer"
 
 interface NLPResponseRendererProps {
-  response: NLPResponse
+  response: NLPResponse 
   onRollbackClick?: (version: any) => void
   onNavigateToPipelines?: () => void
 }
@@ -139,9 +138,6 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     case 'list_namespaces':
       return <NamespaceListRenderer response={response} />
     
-    case 'list_endpoints':
-      return <EndpointListRenderer response={response} />
-    
     case 'logs':
       return <LogsRenderer response={response} />
     
@@ -170,11 +166,11 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     case 'scale':
       return <ScaleRenderer response={response} />
     
+    case 'restart':
+      return <RestartRenderer response={response} />
+    
     // case 'deploy':
     //   return <DeployRenderer response={response} />
-    
-    // case 'restart':
-    //   return <RestartRenderer response={response} />
     
     // case 'cost_analysis':
     //   return <CostAnalysisRenderer response={response} />
