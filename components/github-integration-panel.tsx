@@ -202,18 +202,9 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
   // 사용자 인증 정보 가져오기
   const { user, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
-  console.log("GitHubIntegrationPanel: user object:", user)
-  console.log("GitHubIntegrationPanel: user.id:", user?.id)
-  console.log("GitHubIntegrationPanel: user.provider:", user?.provider)
   
   // 사용자 ID 매핑: 우선 provider_id(실제 고유 ID) → id → provider(최후수단)
   const userId = (user as any)?.provider_id || user?.id || user?.provider
-  console.log("GitHubIntegrationPanel: Final userId for WebSocket:", userId)
-  
-  // 사용자 인증 상태 확인
-  if (!user) {
-    console.warn("User not authenticated, WebSocket connection will not be established")
-  }
   
   // WebSocket for real-time updates (진행 상황만, 자동 목록 새로고침 제외)
   // 사용자 인증이 완료된 경우에만 WebSocket 연결
@@ -221,9 +212,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
   const { isConnected, sendMessage } = useGlobalWebSocket({
     userId: user ? userId : undefined, // 사용자 인증된 경우에만 WebSocket 연결
     onMessage: (message) => {
-      console.log("GitHubIntegrationPanel received WebSocket message:", message)
-      console.log("Message type:", message.type)
-      
       // 실시간 진행 상황 업데이트는 유지 (자동 목록 새로고침 제외)
       // WebSocket 메시지는 개별 디플로이 모니터에서 자동으로 처리됨
       // 별도의 전달 로직이 필요하지 않음 (GlobalWebSocketManager가 자동으로 모든 구독자에게 전달)
@@ -236,12 +224,9 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
   // 강제 새로고침 함수 (모든 리포지토리 확인)
   const handleForceRefreshAll = useCallback(async () => {
     if (!repos || repos.length === 0) return
-
-    console.log('Force refreshing all deployment histories')
     
     for (const repo of repos) {
       try {
-        console.log('Refreshing for repo:', repo.fullName)
         const data = await apiClient.getDeploymentHistories(
           repo.fullName,
           undefined, // 모든 상태의 배포 가져오기
@@ -249,10 +234,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
           0
         ) as any
         
-        console.log(`Deployment data for ${repo.fullName}:`, data)
-        
         if (data.deployments && data.deployments.length > 0) {
-          console.log(`Found ${data.deployments.length} deployments for ${repo.fullName}`)
           // 첫 번째 리포지토리에서 배포를 찾았으면 해당 리포지토리로 설정
           setSelectedDeploymentRepository(repo.fullName)
           break
@@ -275,12 +257,8 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       
       // selectedDeploymentRepository가 없으면 첫 번째 리포지토리 사용
       const targetRepository = selectedDeploymentRepository || repos[0]?.fullName
-      console.log('Refreshing deployment histories for repository:', targetRepository)
-      console.log('selectedDeploymentRepository:', selectedDeploymentRepository)
-      console.log('repos:', repos)
       
       if (!targetRepository) {
-        console.log('No target repository available')
         return
       }
       
@@ -290,13 +268,33 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
         20,
         0
       ) as any
-      console.log('Deployment histories API response:', data)
       
-      const mapped: DeploymentHistory[] = (data.deployments || []).map((deployment: any) => ({
+      const mapped: DeploymentHistory[] = (data.deployments || []).map((deployment: any) => {
+        // ✅ API 응답의 "pending" 상태를 null로 변환 (null = 실행 중/대기 중)
+        const normalizeStageStatus = (status: any) => {
+          if (status === "pending" || status === "waiting") return null
+          if (status === "success" || status === "failed") return status
+          return null
+        }
+
+        return {
         id: deployment.id,
         repository: deployment.repository,
         status: deployment.status,
-        stages: deployment.stages || {
+        stages: deployment.stages ? {
+          sourcecommit: {
+            ...deployment.stages.sourcecommit,
+            status: normalizeStageStatus(deployment.stages.sourcecommit?.status)
+          },
+          sourcebuild: {
+            ...deployment.stages.sourcebuild,
+            status: normalizeStageStatus(deployment.stages.sourcebuild?.status)
+          },
+          sourcedeploy: {
+            ...deployment.stages.sourcedeploy,
+            status: normalizeStageStatus(deployment.stages.sourcedeploy?.status)
+          }
+        } : {
           sourcecommit: { status: null, duration: null },
           sourcebuild: { status: null, duration: null },
           sourcedeploy: { status: null, duration: null }
@@ -325,9 +323,9 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
           name: "",
           namespace: ""
         }
-      }))
+      }
+      })
       
-      console.log('Mapped deployment histories:', mapped)
       setDeploymentHistories(mapped)
     } catch (error: any) {
       console.error('Failed to refresh deployment histories:', error)
@@ -435,11 +433,9 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
           lastSync: r.lastSync ? new Date(r.lastSync) : (r.updated_at ? new Date(r.updated_at) : new Date()),
           branch: r.branch ?? "main",
           status: (r.autoDeployEnabled || r.auto_deploy_enabled ? "active" : "inactive") as Repository["status"],
-          autoDeployEnabled: !!r.autoDeployEnabled || !!r.auto_deploy_enabled,
-          webhookConfigured: Boolean(r.webhookConfigured || r.github_webhook_secret),
-        }))
-        // Debug: log exact count and payload
-        console.log('[GitHubIntegrationPanel] integrations.length =', mapped.length, mapped)
+            autoDeployEnabled: !!r.autoDeployEnabled || !!r.auto_deploy_enabled,
+            webhookConfigured: Boolean(r.webhookConfigured || r.github_webhook_secret),
+          }))
         setRepos(mapped)
       } catch (e: any) {
         console.error("Failed to load integrations:", e)
@@ -466,10 +462,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       try {
         setPrLoading(true)
         setPrError(null)
-        console.log('Fetching pull requests for repository:', selectedRepository)
         const data = await apiClient.getPullRequests(selectedRepository)
-        console.log('Pull requests API response:', data)
-        console.log('Raw PR data structure:', JSON.stringify(data, null, 2))
         
         // 백엔드 응답 구조에 맞게 처리
         let allPullRequests: any[] = []
@@ -517,7 +510,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       try {
         setDeploymentLoading(true)
         setDeploymentError(null)
-        console.log('Fetching deployment histories for repository:', selectedDeploymentRepository)
         
         const data = await apiClient.getDeploymentHistories(
           selectedDeploymentRepository,
@@ -525,7 +517,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
           20,
           0
         ) as any
-        console.log('Deployment histories API response:', data)
         
         const mapped: DeploymentHistory[] = (data.deployments || []).map((deployment: any) => ({
           id: deployment.id,
@@ -601,14 +592,11 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       try {
         setPipelineLoading(true)
         setPipelineError(null)
-        console.log('Fetching pipelines for repository:', selectedPipelineRepository)
         const data = await apiClient.getPipelines(selectedPipelineRepository)
-        console.log('Pipelines API response:', data)
         
         // 백엔드 응답 구조에 맞게 처리
         let allPipelines: any[] = []
         const responseData = data as any
-        console.log('Full API response:', responseData)
         
         // 새로운 배포 히스토리 API 응답 구조 처리
         if (responseData && responseData.deployments && Array.isArray(responseData.deployments)) {
@@ -627,13 +615,11 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
           // 새로운 배포 히스토리 구조인지 확인
           if (pipeline.repository && typeof pipeline.repository === 'string' && pipeline.repository.includes('/')) {
             // 새로운 배포 히스토리 구조
-            console.log('DEBUG: Processing pipeline with status:', pipeline.status)
             const mappedStatus = pipeline.status === "success" ? "completed" : 
                       pipeline.status === "running" ? "running" :
                       pipeline.status === "pending" ? "pending" : 
                       pipeline.status === "failed" ? "failed" : 
                       pipeline.status === "completed" ? "completed" : "unknown"
-            console.log('DEBUG: Mapped status:', mappedStatus)
             return {
               id: String(pipeline.id),
               repository: pipeline.repository,
@@ -692,7 +678,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
             }
           }
         })
-        console.log('Mapped pipelines:', mapped)
         setPipelines(mapped)
       } catch (error: any) {
         console.error('Failed to fetch pipelines:', error)
@@ -914,12 +899,8 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
     try {
       setLoading(true)
 
-      console.log("Connecting repository:", { owner: newRepoOwner, repo: newRepoName })
-
       // Call the API to connect the repository with owner and repo
       const result = await apiClient.connectRepository(newRepoOwner, newRepoName)
-
-      console.log("Repository connection result:", result)
 
       // Refresh the integrations list
       const data = await apiClient.getProjectIntegrations()
@@ -988,7 +969,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
 
   const handleConfigure = async (repoId: string, type: 'general' | 'auto-deploy' | 'webhook' = 'general') => {
     try {
-      console.log(`Configure requested for repository: ${repoId}, type: ${type}`)
       // TODO: 리포지토리 설정 모달 또는 페이지로 이동
       const configTypes = {
         'general': '일반 설정',
@@ -1004,9 +984,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
 
   const handleWebhookToggle = async (repoId: string, enabled: boolean) => {
     try {
-      console.log(`Auto Deploy toggle for repository ${repoId}: ${enabled}`)
-      console.log(`Sending API request to: /api/v1/github/webhook/${repoId}?enabled=${enabled}`)
-      
       // 로컬 상태 먼저 업데이트 (즉시 UI 반영)
       setRepos(prevRepos => 
         prevRepos?.map(repo => 
@@ -1026,7 +1003,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
         const response = await apiClient.updateWebhookConfig(parseInt(repoId), enabled) as any
         
         if (response.status === "success") {
-          console.log(`Auto Deploy ${enabled ? '활성화' : '비활성화'} 성공`)
           // 🔧 최적화: API 성공 시 전체 리포지토리 목록 다시 로드 제거
           // 로컬 상태가 이미 업데이트되었으므로 불필요한 네트워크 요청 방지
         } else {
@@ -1078,8 +1054,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
 
   const handleTriggerDeploy = async (repoFullName: string) => {
     try {
-      console.log(`Trigger Deploy requested for repository: ${repoFullName}`)
-
       // Parse owner/repo from fullName
       const [owner, repo] = repoFullName.split('/')
 
@@ -1106,7 +1080,6 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       // Call the backend API in the background
       try {
         const response = await apiClient.triggerDeploy(owner, repo, "main")
-        console.log("Trigger Deploy response:", response)
       } catch (apiError) {
         console.error("Trigger Deploy failed:", apiError)
         const errorMessage = apiError instanceof Error ? apiError.message : "배포 트리거에 실패했습니다."

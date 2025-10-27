@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Clock, Zap, Wifi, WifiOff, RefreshCw } from "lucide-react"
 import { useGlobalWebSocket } from "@/hooks/use-global-websocket"
 import { DeploymentProgress } from "./deployment-progress"
+import { apiClient } from "@/lib/api"
 
 interface RealtimeDeploymentMonitorProps {
   deploymentId: string | number
@@ -69,10 +70,20 @@ export function RealtimeDeploymentMonitor({
 }: RealtimeDeploymentMonitorProps) {
   const [currentStatus, setCurrentStatus] = useState(initialStatus)
   const [expanded, setExpanded] = useState(initialStatus === "running")
-  const [currentStages, setCurrentStages] = useState(initialStages || {
-    sourcecommit: { status: null, duration: null },
-    sourcebuild: { status: null, duration: null },
-    sourcedeploy: { status: null, duration: null }
+  // ✅ initialStages를 깊은 복사하여 state 초기화 (스냅샷 재생 전에도 기존 데이터 보존)
+  const [currentStages, setCurrentStages] = useState(() => {
+    if (initialStages) {
+      return {
+        sourcecommit: { ...initialStages.sourcecommit },
+        sourcebuild: { ...initialStages.sourcebuild },
+        sourcedeploy: { ...initialStages.sourcedeploy }
+      }
+    }
+    return {
+      sourcecommit: { status: null, duration: null },
+      sourcebuild: { status: null, duration: null },
+      sourcedeploy: { status: null, duration: null }
+    }
   })
   const [currentTiming, setCurrentTiming] = useState(initialTiming || {
     started_at: new Date().toISOString(),
@@ -83,21 +94,70 @@ export function RealtimeDeploymentMonitor({
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [runningElapsedSec, setRunningElapsedSec] = useState<number>(0)
 
+  // ✅ WebSocket이 작동하지 않을 때 대비해서 폴링으로 최신 상태 가져오기
+  useEffect(() => {
+    if (currentStatus !== "running") return // 실행 중일 때만 폴링
+
+    const interval = setInterval(async () => {
+      try {
+        // ✅ apiClient를 사용하여 백엔드로 요청 (자동으로 8000 포트로 프록시됨)
+        const response = await apiClient.getDeploymentHistory(
+          typeof deploymentId === 'string' ? parseInt(deploymentId, 10) : deploymentId
+        ) as any
+
+        // deployment 객체 내부에 stages가 있음
+        const data = response.deployment || response
+
+        if (data.stages) {
+            // ✅ API 응답의 "pending" 상태를 null로 변환
+            const normalizeStageStatus = (status: any) => {
+              if (status === "pending" || status === "waiting") return null
+              if (status === "success" || status === "failed") return status
+              return null
+            }
+
+            setCurrentStages(prev => {
+              const normalized = {
+                sourcecommit: {
+                  ...prev.sourcecommit,  // ✅ WebSocket 데이터 유지 (progress, started_at, elapsed_time 등)
+                  ...(data.stages.sourcecommit || {}),  // API 응답으로 덮어쓰기
+                  status: normalizeStageStatus(data.stages.sourcecommit?.status)
+                },
+                sourcebuild: {
+                  ...prev.sourcebuild,  // ✅ WebSocket 데이터 유지
+                  ...(data.stages.sourcebuild || {}),
+                  status: normalizeStageStatus(data.stages.sourcebuild?.status)
+                },
+                sourcedeploy: {
+                  ...prev.sourcedeploy,  // ✅ WebSocket 데이터 유지
+                  ...(data.stages.sourcedeploy || {}),
+                  status: normalizeStageStatus(data.stages.sourcedeploy?.status)
+                }
+              }
+              return normalized
+            })
+          }
+          if (data.status && data.status !== currentStatus) {
+            setCurrentStatus(data.status)
+          }
+      } catch (error) {
+        console.error("Failed to poll deployment status:", error)
+      }
+    }, 3000) // 3초마다 폴링
+
+    return () => clearInterval(interval)
+  }, [deploymentId, currentStatus])
+
   const { isConnected, connectionStatus, sendMessage } = useGlobalWebSocket({
     deploymentId: typeof deploymentId === 'string' ? parseInt(deploymentId, 10) : deploymentId,
     userId: userId, // userId 전달하여 broadcast_to_user가 작동하도록 함
     onMessage: (message: WebSocketMessage) => {
-      console.log("RealtimeDeploymentMonitor received WebSocket message:", message)
-      console.log("Message deployment_id:", message.deployment_id, "type:", typeof message.deployment_id)
-      console.log("Current deploymentId:", deploymentId, "type:", typeof deploymentId)
-
       // deploymentId가 일치하는 메시지만 처리 (타입 불일치 고려)
       if (message.deployment_id) {
         const messageDeploymentId = String(message.deployment_id)
         const currentDeploymentId = String(deploymentId)
 
         if (messageDeploymentId !== currentDeploymentId) {
-          console.log("Message deployment_id does not match, ignoring:", messageDeploymentId, "vs", currentDeploymentId)
           return
         }
       }
@@ -133,38 +193,26 @@ export function RealtimeDeploymentMonitor({
           break
 
         case "stage_progress":
-          console.log("=== STAGE_PROGRESS MESSAGE RECEIVED ===")
-          console.log("Message stage:", message.stage, "type:", typeof message.stage)
-          console.log("Message progress:", message.progress, "type:", typeof message.progress)
-          console.log("Message elapsed_time:", message.elapsed_time)
-          console.log("Message message:", message.message)
-          console.log("Full message object:", JSON.stringify(message, null, 2))
-
           if (message.stage && typeof message.progress === "number") {
-            console.log(`✅ Valid stage_progress: ${message.stage} - ${message.progress}%`)
             setCurrentStages(prev => {
+              const prevStage = prev[message.stage as keyof typeof prev]
+              // ✅ progress가 100이면 자동으로 success 상태로 전환 (스냅샷 재생 시 stage_completed가 누락될 수 있음)
+              const isCompleted = message.progress === 100
               const updated = {
                 ...prev,
                 [message.stage!]: {
-                  ...prev[message.stage as keyof typeof prev],
+                  ...prevStage,
+                  status: isCompleted ? "success" : (prevStage?.status || null),
                   progress: message.progress,
                   elapsed_time: message.elapsed_time,
                   message: message.message,
                   // 새로고침 후 스냅샷 재생 시 서버에서 온 started_at로 초기화
-                  started_at: message.started_at || (prev[message.stage as keyof typeof prev] as any)?.started_at
+                  started_at: message.started_at || (prevStage as any)?.started_at,
+                  // progress 100이면 completed_at도 설정
+                  completed_at: isCompleted ? (message.timestamp || new Date().toISOString()) : (prevStage as any)?.completed_at
                 }
               }
-              console.log("📊 Updated stages state:", JSON.stringify(updated, null, 2))
               return updated
-            })
-          } else {
-            console.error("❌ Invalid stage_progress message - missing stage or progress is not a number")
-            console.error("Message details:", {
-              hasStage: !!message.stage,
-              stageValue: message.stage,
-              hasProgress: message.progress !== undefined,
-              progressValue: message.progress,
-              progressType: typeof message.progress
             })
           }
           break

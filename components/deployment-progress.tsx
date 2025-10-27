@@ -309,7 +309,12 @@ export function DeploymentProgress({
               const IconComponent = config.icon
               const isCompleted = stage.status === "success" || (stage as any)?.completed_at != null || (stage as any)?.duration != null
               const isFailed = stage.status === "failed"
-              const isRunning = stage.status === null && !(isCompleted || isFailed) && !!(stage as any)?.started_at
+              // ✅ 개선: started_at이 있거나 progress가 0 이상이면 실행 중으로 간주
+              const isRunning = stage.status === null &&
+                                !isCompleted &&
+                                !isFailed &&
+                                ((stage as any)?.started_at != null ||
+                                 (typeof stage.progress === 'number' && stage.progress >= 0))
               const isPending = !isCompleted && !isFailed && !isRunning
               
               return (
