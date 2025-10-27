@@ -89,7 +89,7 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
         {suggestions.length > 0 && (
           <div className="mt-3">
             <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-              💡 올바른 사용법:
+              💡 사용 가능한 명령어 예시:
             </p>
             <div className="space-y-1">
               {suggestions.map((suggestion: string, index: number) => (
