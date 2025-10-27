@@ -92,6 +92,8 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
   const [loading, setLoading] = useState(true)
   const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
+  const [cpuUsage, setCpuUsage] = useState(0)
+  const [memoryUsage, setMemoryUsage] = useState(0)
 
   // 사용자 인증 상태 확인
   const { user, isLoading: authLoading } = useAuth()
@@ -127,6 +129,25 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
         } catch (repoError) {
           console.error('Failed to fetch repositories:', repoError)
           setRepositories([])
+        }
+
+        // Fetch CPU and Memory usage metrics
+        try {
+          const cpuResult = await api.getNKSCpuUsage() as any
+          if (cpuResult.status === 'success' && cpuResult.value) {
+            setCpuUsage(cpuResult.value)
+          }
+        } catch (error) {
+          console.error('Failed to fetch CPU metrics:', error)
+        }
+
+        try {
+          const memoryResult = await api.getNKSMemoryUsage() as any
+          if (memoryResult.status === 'success' && memoryResult.value) {
+            setMemoryUsage(memoryResult.value)
+          }
+        } catch (error) {
+          console.error('Failed to fetch memory metrics:', error)
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
@@ -312,8 +333,8 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
             <Cpu className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.cpuUsage}%</div>
-            <Progress value={data.cpuUsage} className="mt-2" />
+            <div className="text-2xl font-bold">{cpuUsage.toFixed(2)}%</div>
+            <Progress value={cpuUsage} className="mt-2" />
           </CardContent>
         </Card>
 
@@ -323,8 +344,8 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
             <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.memoryUsage}%</div>
-            <Progress value={data.memoryUsage} className="mt-2" />
+            <div className="text-2xl font-bold">{memoryUsage.toFixed(2)}%</div>
+            <Progress value={memoryUsage} className="mt-2" />
           </CardContent>
         </Card>
       </div>
