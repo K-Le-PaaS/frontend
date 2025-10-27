@@ -259,18 +259,39 @@ export interface EndpointMetadata {
 }
 
 // 통합 대시보드 관련 타입
+export interface ReportSection {
+  title: string
+  type: string
+  items?: any[]
+  data?: any
+}
+
 export interface OverviewData {
-  namespace: string
-  deployments: any[]
-  pods: any[]
-  services: any[]
+  report_sections: ReportSection[]
+  summary?: {
+    cluster_name: string
+    total_nodes: number
+    total_namespaces: number
+    total_deployments: number
+    total_pods: number
+    total_services: number
+    running_pods?: number
+    critical_deployment_issues?: number
+    pending_pod_issues?: number
+    failed_pod_issues?: number
+    high_restart_issues?: number
+  }
 }
 
 export interface OverviewMetadata {
-  namespace: string
-  deployment_count: number
-  pod_count: number
-  service_count: number
+  cluster_name: string
+  total_nodes: number
+  total_namespaces: number
+  total_deployments: number
+  total_pods: number
+  total_services: number
+  critical_issues_count: number
+  warnings_count: number
 }
 
 // 에러 관련 타입
