@@ -76,7 +76,6 @@ class ApiClient {
     }
 
     try {
-      console.log('Making API request to:', url)
       const response = await fetch(url, config)
       
       if (!response.ok) {
