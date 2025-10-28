@@ -7,6 +7,9 @@ import { NLPResponse, CommandErrorResponse, RollbackExecutionResponse } from "@/
 import { PodListRenderer } from "./PodListRenderer"
 import { RollbackListRenderer } from "./RollbackListRenderer"
 import { StatusRenderer } from "./StatusRenderer"
+import { PodStatusRenderer } from "./PodStatusRenderer"
+import { ServiceStatusRenderer } from "./ServiceStatusRenderer"
+import { DeploymentStatusRenderer } from "./DeploymentStatusRenderer"
 import { ServiceListRenderer } from "./ServiceListRenderer"
 import { DeploymentListRenderer } from "./DeploymentListRenderer"
 import { IngressListRenderer } from "./IngressListRenderer"
@@ -128,6 +131,15 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     
     case 'status':
       return <StatusRenderer response={response} />
+    
+    case 'pod_status':
+      return <PodStatusRenderer response={response} />
+    
+    case 'service_status':
+      return <ServiceStatusRenderer response={response} />
+    
+    case 'deployment_status':
+      return <DeploymentStatusRenderer response={response} />
     
     case 'list_services':
       return <ServiceListRenderer response={response} />
