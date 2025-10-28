@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Copy, Package, CheckCircle, XCircle, Clock } from "lucide-react"
+import { Copy, Package, CheckCircle, XCircle } from "lucide-react"
 import { DeploymentListResponse, DeploymentInfo } from "@/lib/types/nlp-response"
 import { copyToClipboard } from "@/lib/utils/clipboard"
 
@@ -23,7 +23,7 @@ export function DeploymentListRenderer({ response }: DeploymentListRendererProps
   const getReadyStatus = (ready: string) => {
     const [readyCount, totalCount] = ready.split('/').map(Number)
     const isFullyReady = readyCount === totalCount && totalCount > 0
-    
+
     if (isFullyReady) {
       return (
         <div className="flex items-center gap-1">
@@ -33,25 +33,16 @@ export function DeploymentListRenderer({ response }: DeploymentListRendererProps
           </Badge>
         </div>
       )
-    } else if (readyCount > 0) {
-      return (
-        <div className="flex items-center gap-1">
-          <Clock className="w-4 h-4 text-yellow-500" />
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-            {ready}
-          </Badge>
-        </div>
-      )
-    } else {
-      return (
-        <div className="flex items-center gap-1">
-          <XCircle className="w-4 h-4 text-red-500" />
-          <Badge variant="destructive">
-            {ready}
-          </Badge>
-        </div>
-      )
     }
+
+    return (
+      <div className="flex items-center gap-1">
+        <XCircle className="w-4 h-4 text-red-500" />
+        <Badge variant="destructive">
+          {ready}
+        </Badge>
+      </div>
+    )
   }
 
   return (

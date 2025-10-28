@@ -9,6 +9,9 @@ export type NLPResponseType =
   | 'list_pods' 
   | 'list_rollback' 
   | 'status' 
+  | 'pod_status'
+  | 'service_status'
+  | 'deployment_status'
   | 'logs'
   | 'list_deployments'
   | 'list_services'
@@ -258,6 +261,88 @@ export interface StatusMetadata {
   is_healthy: boolean
 }
 
+// Pod Status 관련 타입
+export interface PodStatusData {
+  namespace: string
+  label_selector: string
+  total_pods: number
+  running: number
+  pending: number
+  failed: number
+  pods: Array<{
+    name: string
+    phase: string
+    ready: string
+    restarts: number
+    node: string
+    labels: Record<string, string>
+    creation_timestamp: string
+  }>
+}
+
+export interface PodStatusMetadata {
+  namespace: string
+  total_pods: number
+  running: number
+  pending: number
+  failed: number
+  is_healthy: boolean
+}
+
+// Service Status 관련 타입
+export interface ServiceStatusData {
+  name: string
+  namespace: string
+  type: string
+  cluster_ip: string
+  ports: Array<{
+    port: number
+    target_port: string
+    protocol: string
+  }>
+  selector: Record<string, string>
+  ready_endpoints: number
+  creation_timestamp: string | null
+}
+
+export interface ServiceStatusMetadata {
+  namespace: string
+  is_healthy: boolean
+}
+
+// Deployment Status 관련 타입
+export interface DeploymentStatusData {
+  name: string
+  namespace: string
+  replicas: {
+    desired: number
+    current: number
+    ready: number
+    available: number
+  }
+  conditions: Array<{
+    type: string
+    status: string
+    reason: string
+    message: string
+  }>
+  pods: Array<{
+    name: string
+    phase: string
+    ready: string
+    restarts: number
+    node: string
+  }>
+  creation_timestamp: string | null
+}
+
+export interface DeploymentStatusMetadata {
+  namespace: string
+  desired: number
+  ready: number
+  is_healthy: boolean
+}
+
 // 엔드포인트 관련 타입
 export interface EndpointData {
   service_name: string
@@ -391,6 +476,9 @@ export type ResponseData =
   | PodInfo[]
   | RollbackListData
   | StatusData
+  | PodStatusData
+  | ServiceStatusData
+  | DeploymentStatusData
   | LogsData
   | ServiceInfo[]
   | DeploymentInfo[]
@@ -414,6 +502,9 @@ export type ResponseMetadata =
   | PodListMetadata
   | RollbackListMetadata
   | StatusMetadata
+  | PodStatusMetadata
+  | ServiceStatusMetadata
+  | DeploymentStatusMetadata
   | LogsMetadata
   | EndpointMetadata
   | EndpointListMetadata
@@ -454,6 +545,33 @@ export interface StatusResponse extends FormattedResponse {
     raw?: any
   }
   metadata: StatusMetadata
+}
+
+export interface PodStatusResponse extends FormattedResponse {
+  type: 'pod_status'
+  data: {
+    formatted: PodStatusData
+    raw?: any
+  }
+  metadata: PodStatusMetadata
+}
+
+export interface ServiceStatusResponse extends FormattedResponse {
+  type: 'service_status'
+  data: {
+    formatted: ServiceStatusData
+    raw?: any
+  }
+  metadata: ServiceStatusMetadata
+}
+
+export interface DeploymentStatusResponse extends FormattedResponse {
+  type: 'deployment_status'
+  data: {
+    formatted: DeploymentStatusData
+    raw?: any
+  }
+  metadata: DeploymentStatusMetadata
 }
 
 export interface LogsResponse extends FormattedResponse {
@@ -657,6 +775,9 @@ export type NLPResponse =
   | PodListResponse
   | RollbackListResponse
   | StatusResponse
+  | PodStatusResponse
+  | ServiceStatusResponse
+  | DeploymentStatusResponse
   | LogsResponse
   | ServiceListResponse
   | DeploymentListResponse
