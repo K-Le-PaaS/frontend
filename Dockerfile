@@ -35,7 +35,7 @@ COPY --from=builder /app/.next/standalone ./
 # (선택 사항) public 폴더와 .next/static 폴더 복사
 # 만약 Next.js에서 이미지 최적화(next/image)나 정적 파일을 사용한다면
 # 이 두 줄의 주석을 해제하세요.
-COPY --from=builder /app/public ./public
+#COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
