@@ -1208,19 +1208,32 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="repositories">Repositories</TabsTrigger>
           <TabsTrigger value="pullrequests">Pull Requests</TabsTrigger>
           <TabsTrigger value="pipelines">CI/CD Pipelines</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="repositories" className="space-y-4">
           {/* Add New Repository */}
           <Card>
             <CardHeader>
-              <CardTitle>Connect New Repository</CardTitle>
-              <CardDescription>Add a GitHub repository to enable automated deployments</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Connect New Repository</CardTitle>
+                  <CardDescription>Add a GitHub repository to enable automated deployments</CardDescription>
+                </div>
+                <Button 
+                  onClick={handleConnectSlack}
+                  variant={slackConnected ? "secondary" : "default"}
+                  size="sm"
+                  aria-busy={connectingSlack}
+                  disabled={connectingSlack || slackConnected}
+                  title={slackConnected ? 'Already connected' : undefined}
+                >
+                  {slackConnected ? 'Slack Connected' : (connectingSlack ? 'Connecting…' : 'Connect Slack')}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex space-x-2">
@@ -1500,17 +1513,7 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
             <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </Button>
-          <Button 
-            onClick={handleConnectSlack}
-            variant={slackConnected ? "secondary" : "default"}
-            size="sm"
-            aria-busy={connectingSlack}
-            disabled={connectingSlack || slackConnected}
-            className="ml-2 h-6 px-2 inline-flex items-center gap-1 align-middle transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-60"
-            title={slackConnected ? 'Already connected' : undefined}
-          >
-            {slackConnected ? 'Connected!' : (connectingSlack ? 'Connecting…' : 'Connect Slack')}
-          </Button>
+          
         </CardDescription>
                 </div>
                 {repos && repos.length > 0 && (
