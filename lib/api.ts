@@ -339,6 +339,24 @@ class ApiClient {
     return this.request(`/api/v1/deployment-histories/repositories/latest?t=${ts}`)
   }
 
+  // Deployment logs/pods (UI 전용 public API)
+  async getDeploymentPods(namespace: string, app: string): Promise<any> {
+    return this.request(`/api/v1/deployments/${namespace}/${app}/pods`)
+  }
+
+  async getDeploymentLogs(
+    namespace: string,
+    app: string,
+    params: { pod?: string; lines?: number; previous?: boolean } = {}
+  ): Promise<any> {
+    const qs = new URLSearchParams()
+    if (params.pod) qs.append('pod', params.pod)
+    if (typeof params.lines === 'number') qs.append('lines', String(params.lines))
+    if (typeof params.previous === 'boolean') qs.append('previous', String(params.previous))
+    const suffix = qs.toString() ? `?${qs.toString()}` : ''
+    return this.request(`/api/v1/deployments/${namespace}/${app}/logs${suffix}`)
+  }
+
   // NLP Command console
   async getCommandHistory(limit: number = 50, offset: number = 0): Promise<any[]> {
     const ts = Date.now()
