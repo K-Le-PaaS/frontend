@@ -105,9 +105,9 @@ export function DeploymentLogsDialog({
     try {
       setLoading(true)
       setError(null)
-      const response = await (api as any).getDeploymentPods
-        ? (api as any).getDeploymentPods(namespace, appName)
-        : apiClientFallback(`/api/v1/deployments/${namespace}/${appName}/pods`)
+      const response = (api as any).getDeploymentPods
+        ? await (api as any).getDeploymentPods(namespace, appName)
+        : await apiClientFallback(`/api/v1/deployments/${namespace}/${appName}/pods`)
       if (response && (response as any).status === "success") {
         setPods((response as any).pods)
         // Select first pod (API returns representative pod first)
@@ -136,9 +136,9 @@ export function DeploymentLogsDialog({
         lines: String(lines),
         previous: String(previous)
       }).toString()
-      const response = await (api as any).getDeploymentLogs
-        ? (api as any).getDeploymentLogs(namespace, appName, { pod: selectedPod, lines, previous })
-        : apiClientFallback(`/api/v1/deployments/${namespace}/${appName}/logs?${qs}`)
+      const response = (api as any).getDeploymentLogs
+        ? await (api as any).getDeploymentLogs(namespace, appName, { pod: selectedPod, lines, previous })
+        : await apiClientFallback(`/api/v1/deployments/${namespace}/${appName}/logs?${qs}`)
       if (response && (response as any).status === "success") {
         setLogsData(response as any)
       } else {

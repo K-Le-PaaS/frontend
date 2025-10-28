@@ -721,7 +721,7 @@ export function DeploymentStatusMonitoring({
           open={logsDialogOpen}
           onOpenChange={setLogsDialogOpen}
           namespace={actionRepo.latest_deployment?.cluster.namespace || "default"}
-          appName={actionRepo.repo}
+          appName={`${actionRepo.owner}-${actionRepo.repo}`.toLowerCase()}
         />
       )}
     </div>
