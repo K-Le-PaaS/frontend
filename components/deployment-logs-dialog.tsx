@@ -70,6 +70,16 @@ export function DeploymentLogsDialog({
   const [error, setError] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement | null>(null)
 
+  // Fallback fetcher when helper methods are unavailable in older builds
+  const apiClientFallback = async (endpoint: string) => {
+    // api is an instance; we can't access private request. Use fetch directly.
+    const base = (api as any).baseURL || ''
+    const url = `${base}${endpoint}`
+    const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, cache: 'no-store' })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.json()
+  }
+
   // Fetch pods when dialog opens
   useEffect(() => {
     if (open) {
@@ -95,7 +105,9 @@ export function DeploymentLogsDialog({
     try {
       setLoading(true)
       setError(null)
-      const response = await api.request(`/api/v1/deployments/${namespace}/${appName}/pods`)
+      const response = await (api as any).getDeploymentPods
+        ? (api as any).getDeploymentPods(namespace, appName)
+        : apiClientFallback(`/api/v1/deployments/${namespace}/${appName}/pods`)
       if (response && (response as any).status === "success") {
         setPods((response as any).pods)
         // Select first pod (API returns representative pod first)
@@ -124,7 +136,9 @@ export function DeploymentLogsDialog({
         lines: String(lines),
         previous: String(previous)
       }).toString()
-      const response = await api.request(`/api/v1/deployments/${namespace}/${appName}/logs?${qs}`)
+      const response = await (api as any).getDeploymentLogs
+        ? (api as any).getDeploymentLogs(namespace, appName, { pod: selectedPod, lines, previous })
+        : apiClientFallback(`/api/v1/deployments/${namespace}/${appName}/logs?${qs}`)
       if (response && (response as any).status === "success") {
         setLogsData(response as any)
       } else {
