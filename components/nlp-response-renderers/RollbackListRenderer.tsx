@@ -59,20 +59,21 @@ export function RollbackListRenderer({ response, onRollbackClick }: RollbackList
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <GitBranch className="w-5 h-5" />
-            배포 버전 관리
-          </CardTitle>
-          <CardDescription>
-            {response.summary}
-          </CardDescription>
-        </div>
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <CardTitle className="flex items-center gap-2 mb-2">
+              <GitBranch className="w-5 h-5" />
+              배포 버전 관리
+            </CardTitle>
+            <CardDescription className="text-sm">
+              <span className="text-muted-foreground">{metadata.owner}/{metadata.repo}</span> · {response.summary}
+            </CardDescription>
+          </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => copyToClipboard(JSON.stringify(response, null, 2))}
+            className="shrink-0"
           >
             <Copy className="w-4 h-4 mr-2" />
             복사
@@ -80,14 +81,11 @@ export function RollbackListRenderer({ response, onRollbackClick }: RollbackList
         </div>
         
         {/* 통계 요약 */}
-        <div className="flex gap-4 mt-4">
-          <Badge variant="outline">
-            저장소: {metadata.owner}/{metadata.repo}
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-xs">
+            롤백 가능: {metadata.total_available}개
           </Badge>
-          <Badge variant="secondary">
-            사용 가능: {metadata.total_available}개
-          </Badge>
-          <Badge variant="destructive">
+          <Badge variant="destructive" className="text-xs">
             롤백 이력: {metadata.total_rollbacks}개
           </Badge>
         </div>
@@ -112,61 +110,73 @@ export function RollbackListRenderer({ response, onRollbackClick }: RollbackList
             <span className="font-medium">롤백 가능한 버전들 ({rollbackData.versions.length}개)</span>
           </div>
           
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>버전</TableHead>
-                <TableHead>커밋</TableHead>
-                <TableHead>메시지</TableHead>
-                <TableHead>배포 시간</TableHead>
-                <TableHead>액션</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rollbackData.versions.map((version, index) => (
-                <TableRow key={`${version.commit}-${index}`}>
-                  <TableCell className="font-medium">
-                    {version.steps_back === 0 ? "바로 이전 버전" : `${version.steps_back}번 전 버전`}
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                      {formatCommitHash(version.commit)}
-                    </code>
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {version.message}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {version.date}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {version.can_rollback && onRollbackClick && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onRollbackClick(version)}
-                          className="text-xs"
-                        >
-                          <RotateCcw className="w-3 h-3 mr-1" />
-                          롤백
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(version.commit)}
-                      >
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {rollbackData.versions.length === 0 ? (
+            <div className="p-6 border border-dashed rounded-lg text-center bg-muted/20">
+              <RotateCcw className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                롤백 가능한 버전이 없습니다.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                이전 배포 이력이 없어 롤백할 수 없습니다.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>버전</TableHead>
+                  <TableHead>커밋</TableHead>
+                  <TableHead>메시지</TableHead>
+                  <TableHead>배포 시간</TableHead>
+                  <TableHead>액션</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rollbackData.versions.map((version, index) => (
+                  <TableRow key={`${version.commit}-${index}`}>
+                    <TableCell className="font-medium">
+                      {version.steps_back === 0 ? "바로 이전 버전" : `${version.steps_back}번 전 버전`}
+                    </TableCell>
+                    <TableCell>
+                      <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                        {formatCommitHash(version.commit)}
+                      </code>
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {version.message}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {version.date}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {version.can_rollback && onRollbackClick && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onRollbackClick(version)}
+                            className="text-xs"
+                          >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            롤백
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(version.commit)}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
 
         {/* 롤백 히스토리 */}

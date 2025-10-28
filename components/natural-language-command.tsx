@@ -21,11 +21,14 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Copy,
 } from "lucide-react"
 import { apiClient } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { NLPResponseRenderer } from "./nlp-response-renderers"
 import { NLPResponse } from "@/lib/types/nlp-response"
+import { copyToClipboard } from "@/lib/utils/clipboard"
+import { useToast } from "@/hooks/use-toast"
 
 // 메시지 타입 정의
 interface Message {
@@ -78,6 +81,7 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
   const [isScrollingToMessage, setIsScrollingToMessage] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
 
   // 스크롤을 맨 아래로 이동하는 함수 (다중 방법 시도)
   const scrollToBottom = () => {
@@ -562,7 +566,7 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
       <div
         key={message.id}
         data-message={message.id}
-        className={cn("flex gap-3 mb-4", isUser ? "justify-end" : "justify-start")}
+        className={cn("flex gap-3 mb-4 group", isUser ? "justify-end" : "justify-start")}
       >
         {!isUser && (
           <Avatar className="w-8 h-8">
@@ -571,6 +575,35 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
             </AvatarFallback>
           </Avatar>
         )}
+
+        {/* 복사 버튼 */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 shrink-0"
+          onClick={async () => {
+            // HTML 태그 제거 후 순수 텍스트만 복사
+            const textContent = message.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+            const success = await copyToClipboard(textContent)
+            
+            if (success) {
+              toast({
+                title: "복사 완료",
+                description: "메시지가 클립보드에 복사되었습니다.",
+                duration: 2000,
+              })
+            } else {
+              toast({
+                title: "복사 실패",
+                description: "클립보드 복사에 실패했습니다.",
+                variant: "destructive",
+                duration: 2000,
+              })
+            }
+          }}
+        >
+          <Copy className="w-3 h-3" />
+        </Button>
 
         <div className={cn("flex flex-col gap-2", isUser ? "items-end" : "items-start", "max-w-[70%]")}>
           <div

@@ -23,6 +23,7 @@ export type NLPResponseType =
   | 'deploy'
   | 'deploy_github_repository'
   | 'restart'
+  | 'rollback'
   | 'cost_analysis'
   | 'rollback_execution'
   | 'unknown'
@@ -616,6 +617,28 @@ export interface RollbackExecutionMetadata {
   status: string
 }
 
+// 롤백 실행 결과 타입
+export interface RollbackData {
+  status: string
+  target_commit: string
+  previous_commit: string
+  owner: string
+  repo: string
+}
+
+export interface RollbackResponse extends FormattedResponse {
+  type: 'rollback'
+  data: {
+    formatted: RollbackData
+    raw?: any
+  }
+  metadata: {
+    owner: string
+    repo: string
+    target_commit: string
+  }
+}
+
 export interface RollbackExecutionResponse extends FormattedResponse {
   type: 'rollback_execution'
   data: {
@@ -671,6 +694,7 @@ export type NLPResponse =
   | DeployResponse
   | DeployGitHubRepositoryResponse
   | RestartResponse
+  | RollbackResponse
   | CostAnalysisResponse
   | RollbackExecutionResponse
   | ErrorResponse
