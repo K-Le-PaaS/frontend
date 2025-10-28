@@ -11,24 +11,27 @@ import { ServiceListRenderer } from "./ServiceListRenderer"
 import { DeploymentListRenderer } from "./DeploymentListRenderer"
 import { IngressListRenderer } from "./IngressListRenderer"
 import { NamespaceListRenderer } from "./NamespaceListRenderer"
+import { EndpointListRenderer } from "./EndpointListRenderer"
 import { LogsRenderer } from "./LogsRenderer"
 import { OverviewRenderer } from "./OverviewRenderer"
 import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 import { DeployResponseRenderer } from "./DeployResponseRenderer"
 import { ScaleRenderer } from "./ScaleRenderer"
 import { RestartRenderer } from "./RestartRenderer"
+import { RollbackRenderer } from "./RollbackRenderer"
 // import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
 // import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
 // import { OverviewRenderer } from "./OverviewRenderer"
 // import { EndpointRenderer } from "./EndpointRenderer"
 // import { ScaleRenderer } from "./ScaleRenderer"
 // import { DeployRenderer } from "./DeployRenderer"
+// import { RestartRenderer } from "./RestartRenderer"
 // import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 // import { ErrorRenderer } from "./ErrorRenderer"
 import { EndpointRenderer } from "./EndpointRenderer"
 
 interface NLPResponseRendererProps {
-  response: NLPResponse 
+  response: NLPResponse
   onRollbackClick?: (version: any) => void
   onNavigateToPipelines?: () => void
 }
@@ -88,7 +91,7 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
         {suggestions.length > 0 && (
           <div className="mt-3">
             <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-              💡 사용 가능한 명령어 예시:
+              💡 올바른 사용법:
             </p>
             <div className="space-y-1">
               {suggestions.map((suggestion: string, index: number) => (
@@ -140,9 +143,7 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     
     case 'logs':
       return <LogsRenderer response={response} />
-    case 'list_endpoints':
-       return <EndpointListRenderer response={response} />
-       
+    
     case 'overview':
       return <OverviewRenderer response={response} />
     
@@ -170,6 +171,9 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     
     case 'restart':
       return <RestartRenderer response={response} />
+    
+    case 'rollback':
+      return <RollbackRenderer response={response} />
     
     // case 'deploy':
     //   return <DeployRenderer response={response} />
