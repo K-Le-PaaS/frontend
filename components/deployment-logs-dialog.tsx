@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -68,6 +68,7 @@ export function DeploymentLogsDialog({
   const [previous, setPrevious] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const logEndRef = useRef<HTMLDivElement | null>(null)
 
   // Fetch pods when dialog opens
   useEffect(() => {
@@ -83,16 +84,23 @@ export function DeploymentLogsDialog({
     }
   }, [open, selectedPod, lines, previous])
 
+  // Auto-scroll to bottom when logs update
+  useEffect(() => {
+    if (logsData && logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [logsData])
+
   const fetchPods = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await api.get(`/deployments/${namespace}/${appName}/pods`)
-      if (response.data.status === "success") {
-        setPods(response.data.pods)
+      const response = await api.request(`/api/v1/deployments/${namespace}/${appName}/pods`)
+      if (response && (response as any).status === "success") {
+        setPods((response as any).pods)
         // Select first pod (API returns representative pod first)
-        if (response.data.pods.length > 0) {
-          setSelectedPod(response.data.pods[0].name)
+        if ((response as any).pods.length > 0) {
+          setSelectedPod((response as any).pods[0].name)
         }
       } else {
         setError("Pod 목록을 가져올 수 없습니다.")
@@ -111,15 +119,14 @@ export function DeploymentLogsDialog({
     try {
       setLoading(true)
       setError(null)
-      const response = await api.get(`/deployments/${namespace}/${appName}/logs`, {
-        params: {
-          pod: selectedPod,
-          lines,
-          previous,
-        },
-      })
-      if (response.data.status === "success") {
-        setLogsData(response.data)
+      const qs = new URLSearchParams({
+        pod: selectedPod,
+        lines: String(lines),
+        previous: String(previous)
+      }).toString()
+      const response = await api.request(`/api/v1/deployments/${namespace}/${appName}/logs?${qs}`)
+      if (response && (response as any).status === "success") {
+        setLogsData(response as any)
       } else {
         setError("로그를 가져올 수 없습니다.")
       }
@@ -157,12 +164,6 @@ export function DeploymentLogsDialog({
     }
   }
 
-  const handleCopySternCommand = () => {
-    const command = `stern deploy/${appName} -n ${namespace} --tail ${lines} -F -o raw`
-    navigator.clipboard.writeText(command)
-    toast.success("stern 명령어가 클립보드에 복사되었습니다")
-  }
-
   const getPodStatusBadge = (pod: Pod) => {
     if (pod.ready) {
       return (
@@ -190,26 +191,29 @@ export function DeploymentLogsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-[min(90vw,1100px)] w-[90vw] sm:w-auto max-h-[82vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Terminal className="h-5 w-5" />
-            {appName} 로그
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-muted">
+              <Terminal className="h-4 w-4 text-muted-foreground" />
+            </span>
+            <span className="font-semibold">{appName}</span>
+            <span className="text-muted-foreground">로그</span>
           </DialogTitle>
           <DialogDescription>
             네임스페이스: {namespace} • Pod별 로그 확인
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col space-y-4">
+        <div className="flex-1 flex flex-col space-y-3 min-h-0">
           {/* Controls */}
-          <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+          <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-muted/30 rounded-lg border">
             <div className="flex items-center gap-2">
               <Label htmlFor="pod-select" className="text-sm font-medium">
                 Pod:
               </Label>
               <Select value={selectedPod} onValueChange={setSelectedPod}>
-                <SelectTrigger id="pod-select" className="w-48">
+                <SelectTrigger id="pod-select" className="w-56">
                   <SelectValue placeholder="Pod 선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -230,7 +234,7 @@ export function DeploymentLogsDialog({
                 줄 수:
               </Label>
               <Select value={lines.toString()} onValueChange={(v) => setLines(Number(v))}>
-                <SelectTrigger id="lines-select" className="w-20">
+                <SelectTrigger id="lines-select" className="w-24">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -265,18 +269,16 @@ export function DeploymentLogsDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopyLogs}>
+          <div className="flex items-center gap-2 justify-end">
+            <Button variant="secondary" size="sm" onClick={handleCopyLogs}
+              title="현재 표시된 로그를 클립보드로 복사">
               <Copy className="mr-2 h-4 w-4" />
               로그 복사
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadLogs}>
+            <Button variant="secondary" size="sm" onClick={handleDownloadLogs}
+              title="현재 표시된 로그를 파일로 저장">
               <Download className="mr-2 h-4 w-4" />
               다운로드
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleCopySternCommand}>
-              <Terminal className="mr-2 h-4 w-4" />
-              stern 복사
             </Button>
           </div>
 
@@ -288,12 +290,12 @@ export function DeploymentLogsDialog({
                 {error}
               </div>
             ) : logsData ? (
-              <div className="h-full border rounded-lg">
-                <div className="p-3 bg-muted/50 border-b flex items-center justify-between text-sm">
+              <div className="h-full rounded-lg border bg-background overflow-hidden flex flex-col">
+                <div className="px-3 py-2 bg-muted/40 border-b flex items-center justify-between text-xs sm:text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{logsData.podName}</span>
+                    <span className="font-medium truncate max-w-[240px]" title={logsData.podName}>{logsData.podName}</span>
                     {logsData.podStatus && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-[10px] sm:text-xs">
                         {logsData.podStatus}
                       </Badge>
                     )}
@@ -308,10 +310,13 @@ export function DeploymentLogsDialog({
                     </div>
                   )}
                 </div>
-                <ScrollArea className="h-[400px]">
-                  <pre className="p-4 text-xs font-mono whitespace-pre-wrap break-words">
-                    {logsData.logs}
-                  </pre>
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="p-3 bg-[rgb(18,18,18)] text-[rgb(210,210,210)] max-w-full overflow-x-auto h-full">
+                    <pre className="text-[11px] sm:text-xs font-mono whitespace-pre-wrap break-all leading-5">
+{logsData.logs}
+                    </pre>
+                    <div ref={logEndRef} />
+                  </div>
                 </ScrollArea>
               </div>
             ) : (
