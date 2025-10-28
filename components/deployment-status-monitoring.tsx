@@ -31,12 +31,14 @@ import {
   Github,
   Activity,
   ExternalLink,
+  Terminal,
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { RollbackDialog } from "@/components/rollback-dialog"
 import { ScaleDialog } from "@/components/scale-dialog"
 import { RestartDialog } from "@/components/restart-dialog"
+import { DeploymentLogsDialog } from "@/components/deployment-logs-dialog"
 import { formatDuration } from "@/lib/utils"
 import { formatImageDisplay } from "@/lib/utils/image-formatter"
 
@@ -96,10 +98,11 @@ export function DeploymentStatusMonitoring({
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
 
-  // Dialog states for Rollback, Scale, Restart
+  // Dialog states for Rollback, Scale, Restart, Logs
   const [rollbackDialogOpen, setRollbackDialogOpen] = useState(false)
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false)
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
+  const [logsDialogOpen, setLogsDialogOpen] = useState(false)
   const [actionRepo, setActionRepo] = useState<RepositoryWorkload | null>(null)
 
   // 사용자 인증 상태 확인
@@ -199,6 +202,11 @@ export function DeploymentStatusMonitoring({
   const handleViewDetails = (repo: RepositoryWorkload) => {
     setSelectedRepo(repo)
     setDetailsOpen(true)
+  }
+
+  const handleOpenLogs = (repo: RepositoryWorkload) => {
+    setActionRepo(repo)
+    setLogsDialogOpen(true)
   }
 
   const handleOpenRollback = (repo: RepositoryWorkload) => {
@@ -444,10 +452,10 @@ export function DeploymentStatusMonitoring({
                         size="default"
                         variant="outline"
                         className="flex-1"
-                        onClick={() => handleViewDetails(repo)}
+                        onClick={() => handleOpenLogs(repo)}
                       >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Details
+                        <Terminal className="mr-2 h-4 w-4" />
+                        Logs
                       </Button>
                     </div>
                   </>
@@ -705,6 +713,15 @@ export function DeploymentStatusMonitoring({
           currentCommitSha={actionRepo.latest_deployment?.commit.sha}
           currentImage={actionRepo.latest_deployment?.image.url}
           onRestartSuccess={handleActionSuccess}
+        />
+      )}
+      {/* Logs Dialog */}
+      {actionRepo && (
+        <DeploymentLogsDialog
+          open={logsDialogOpen}
+          onOpenChange={setLogsDialogOpen}
+          namespace={actionRepo.latest_deployment?.cluster.namespace || "default"}
+          appName={actionRepo.repo}
         />
       )}
     </div>
