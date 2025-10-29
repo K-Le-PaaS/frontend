@@ -154,20 +154,35 @@ export function RealTimeMonitoringDashboard() {
   const [nksError, setNksError] = useState<string | null>(null)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
 
+  type DetailNode = {
+    instance: string
+    cpu: { utilization_pct?: number; load_avg_per_core?: number; iowait_pct?: number }
+    memory: { usage_pct?: number; swap_used_bytes?: number }
+    disk: { root_usage_pct?: number; io_saturation?: number; readonly?: boolean }
+    network: { rx_bps?: number; tx_bps?: number; rx_errs_ps?: number; rx_drops_ps?: number }
+    alerts?: { severity: 'critical' | 'warning' | 'info'; reasons: string[] }
+  }
+
+  const [details, setDetails] = useState<DetailNode[]>([])
+  const [detailsError, setDetailsError] = useState<string | null>(null)
+  const [detailsCluster, setDetailsCluster] = useState<string>('nks-cluster')
+
   // 효율적인 개별 메트릭 폴링
   useEffect(() => {
     const fetchMetricsData = async () => {
       try {
         // 에러 상태만 초기화 (로딩 상태는 건드리지 않음)
         setNksError(null)
+        setDetailsError(null)
         
         // 병렬로 필요한 메트릭만 가져오기
-        const [cpuData, memoryData, diskData, networkData] = await Promise.all([
+        const [cpuData, memoryData, diskData, networkData, detailsResp] = await Promise.all([
           apiClient.getNKSCpuUsage(),
           apiClient.getNKSMemoryUsage(),
           apiClient.getNKSDiskUsage(),
-          apiClient.getNKSNetworkTraffic()
-        ]) as [any, any, any, any]
+          apiClient.getNKSNetworkTraffic(),
+          apiClient.getMonitoringDetails(),
+        ]) as [any, any, any, any, any]
 
         // NKS 데이터 상태 업데이트 (간소화된 형태)
         setNksData({
@@ -196,6 +211,14 @@ export function RealTimeMonitoringDashboard() {
           overall_status: 'healthy',
           message: 'NKS monitoring data retrieved successfully'
         })
+
+        // 상세 지표 저장
+        if (detailsResp && Array.isArray(detailsResp.nodes)) {
+          setDetails(detailsResp.nodes as DetailNode[])
+          if (detailsResp.cluster) {
+            setDetailsCluster(detailsResp.cluster as string)
+          }
+        }
         
         // 초기 로딩 완료
         if (isInitialLoad) {
@@ -206,6 +229,7 @@ export function RealTimeMonitoringDashboard() {
       } catch (error) {
         console.error('Failed to fetch NKS monitoring data:', error)
         setNksError('NKS 모니터링 데이터를 가져오는데 실패했습니다.')
+        setDetailsError('상세 모니터링 데이터를 가져오는데 실패했습니다.')
         // 에러 발생 시에도 초기 로딩은 완료로 처리
         if (isInitialLoad) {
           setNksLoading(false)
@@ -360,204 +384,99 @@ export function RealTimeMonitoringDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="metrics" className="w-full">
+      <Tabs defaultValue="nodes" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="nodes">Cluster Nodes</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="alerts">Alerts</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="metrics" className="space-y-4">
-          {/* 실시간 메트릭 차트들 */}
+        <TabsContent value="details" className="space-y-4">
           {nksLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              <span className="ml-4 text-lg">모니터링 데이터 로딩 중...</span>
+              <span className="ml-4 text-lg">상세 지표 로딩 중...</span>
             </div>
-          ) : nksError ? (
+          ) : detailsError ? (
             <div className="text-center py-12">
               <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-              <p className="text-red-600 text-lg">{nksError}</p>
+              <p className="text-red-600 text-lg">{detailsError}</p>
             </div>
-          ) : !nksData ? (
+          ) : details.length === 0 ? (
             <div className="text-center py-12">
               <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">모니터링 데이터를 수집 중입니다...</p>
+              <p className="text-gray-600 text-lg">상세 모니터링 데이터를 수집 중입니다...</p>
             </div>
           ) : (
-            <div className="space-y-6">
-            {/* 차트 영역 - 간단한 진행률 바 차트 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* CPU 사용률 차트 */}
+            <div className="space-y-4">
+              {/* Header card (separate box) */}
             <Card className="border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Cpu className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <span className="text-lg font-semibold">CPU Usage</span>
-                      <p className="text-sm text-muted-foreground font-normal">클러스터 CPU 사용률</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {(nksData?.metrics?.cpu_usage || 0).toFixed(2)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">현재 사용률</div>
-                  </div>
-                </CardTitle>
+                <CardHeader>
+                  <CardTitle>Node Details</CardTitle>
+                  <CardDescription>클러스터 노드별 상세 지표</CardDescription>
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">CPU Usage</span>
-                    <span className="text-sm font-bold text-blue-600">{(nksData?.metrics?.cpu_usage || 0).toFixed(2)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min(nksData?.metrics?.cpu_usage || 0, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0%</span>
-                    <span>50%</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
 
-            {/* 메모리 사용률 차트 */}
-            <Card className="border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Database className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <span className="text-lg font-semibold">Memory Usage</span>
-                      <p className="text-sm text-muted-foreground font-normal">클러스터 메모리 사용률</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-green-600">
-                      {(nksData?.metrics?.memory_usage || 0).toFixed(2)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">현재 사용률</div>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Memory Usage</span>
-                    <span className="text-sm font-bold text-green-600">{(nksData?.metrics?.memory_usage || 0).toFixed(2)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-green-600 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min(nksData?.metrics?.memory_usage || 0, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0%</span>
-                    <span>50%</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Per-node cards (separate box per cluster/node) */}
+              {details.map((node) => {
+                const rows: Array<{resource: string; label: string; value: string; alert?: string; severity?: string}> = []
+                rows.push({ resource: 'CPU', label: 'Utilization', value: `${(node.cpu.utilization_pct ?? 0).toFixed(2)}%`, alert: (node.cpu.utilization_pct ?? 0) > 80 ? 'High' : 'Normal', severity: (node.cpu.utilization_pct ?? 0) > 80 ? 'warning' : 'info' })
+                rows.push({ resource: 'CPU', label: 'Load Avg/Core', value: `${(node.cpu.load_avg_per_core ?? 0).toFixed(2)}`, alert: (node.cpu.load_avg_per_core ?? 0) > 1 ? 'Saturated' : 'OK', severity: (node.cpu.load_avg_per_core ?? 0) > 1 ? 'warning' : 'info' })
+                rows.push({ resource: 'CPU', label: 'I/O Wait', value: `${(node.cpu.iowait_pct ?? 0).toFixed(2)}%`, alert: (node.cpu.iowait_pct ?? 0) > 5 ? 'High' : 'OK', severity: (node.cpu.iowait_pct ?? 0) > 5 ? 'warning' : 'info' })
 
-            {/* 디스크 사용률 차트 */}
-            <Card className="border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <HardDrive className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <span className="text-lg font-semibold">Disk Usage</span>
-                      <p className="text-sm text-muted-foreground font-normal">클러스터 디스크 사용률</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {(nksData?.metrics?.disk_usage || 0).toFixed(2)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground">현재 사용률</div>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Disk Usage</span>
-                    <span className="text-sm font-bold text-orange-600">{(nksData?.metrics?.disk_usage || 0).toFixed(2)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-orange-600 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min(nksData?.metrics?.disk_usage || 0, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0%</span>
-                    <span>50%</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                rows.push({ resource: 'Memory', label: 'Usage', value: `${(node.memory.usage_pct ?? 0).toFixed(2)}%`, alert: (node.memory.usage_pct ?? 0) > 80 ? 'High' : 'OK', severity: (node.memory.usage_pct ?? 0) > 80 ? 'warning' : 'info' })
+                rows.push({ resource: 'Memory', label: 'Swap Used', value: `${Math.max(0, Math.round((node.memory.swap_used_bytes ?? 0)))} B`, alert: (node.memory.swap_used_bytes ?? 0) > 0 ? 'In Use' : 'OK', severity: (node.memory.swap_used_bytes ?? 0) > 0 ? 'warning' : 'info' })
 
-            {/* 네트워크 트래픽 차트 */}
-            <Card className="border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Network className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <span className="text-lg font-semibold">Network Traffic</span>
-                      <p className="text-sm text-muted-foreground font-normal">클러스터 네트워크 트래픽</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {(nksData?.metrics?.network_traffic?.inbound_mbps || 0).toFixed(2)} MB/s
-                    </div>
-                    <div className="text-xs text-muted-foreground">현재 인바운드</div>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Network Traffic</span>
-                    <span className="text-sm font-bold text-purple-600">{(nksData?.metrics?.network_traffic?.inbound_mbps || 0).toFixed(2)} MB/s</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-purple-600 h-3 rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min((nksData?.metrics?.network_traffic?.inbound_mbps || 0) * 10, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>0 MB/s</span>
-                    <span>5 MB/s</span>
-                    <span>10 MB/s</span>
-                  </div>
+                rows.push({ resource: 'Disk', label: 'Root Usage', value: `${(node.disk.root_usage_pct ?? 0).toFixed(2)}%`, alert: (node.disk.root_usage_pct ?? 0) > 85 ? 'High' : 'OK', severity: (node.disk.root_usage_pct ?? 0) > 85 ? 'warning' : 'info' })
+                rows.push({ resource: 'Disk', label: 'IO Saturation', value: `${(node.disk.io_saturation ?? 0).toFixed(2)}`, alert: (node.disk.io_saturation ?? 0) > 0.8 ? 'High' : 'OK', severity: (node.disk.io_saturation ?? 0) > 0.8 ? 'warning' : 'info' })
+                rows.push({ resource: 'Disk', label: 'Readonly', value: node.disk.readonly ? 'Yes' : 'No', alert: node.disk.readonly ? 'Readonly' : 'OK', severity: node.disk.readonly ? 'critical' : 'info' })
+
+                rows.push({ resource: 'Network', label: 'RX Throughput', value: `${Math.round(node.network.rx_bps ?? 0)} B/s`, alert: '—', severity: 'info' })
+                rows.push({ resource: 'Network', label: 'TX Throughput', value: `${Math.round(node.network.tx_bps ?? 0)} B/s`, alert: '—', severity: 'info' })
+                rows.push({ resource: 'Network', label: 'RX Errors', value: `${(node.network.rx_errs_ps ?? 0).toFixed(2)}/s`, alert: (node.network.rx_errs_ps ?? 0) > 0 ? 'Errors' : 'OK', severity: (node.network.rx_errs_ps ?? 0) > 0 ? 'warning' : 'info' })
+                rows.push({ resource: 'Network', label: 'RX Drops', value: `${(node.network.rx_drops_ps ?? 0).toFixed(2)}/s`, alert: (node.network.rx_drops_ps ?? 0) > 0 ? 'Drops' : 'OK', severity: (node.network.rx_drops_ps ?? 0) > 0 ? 'warning' : 'info' })
+
+                return (
+                  <Card key={`block-${node.instance}`} className="border shadow-sm">
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-base">{detailsCluster}</CardTitle>
+                      <CardDescription className="text-xs">{node.instance}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left border-b">
+                              <th className="py-2 pr-4">Detail</th>
+                              <th className="py-2 pr-4">Alert</th>
+                              <th className="py-2">Resource</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((r, idx) => (
+                              <tr key={`${node.instance}-${r.resource}-${r.label}-${idx}`} className="border-b">
+                                <td className="py-2 pr-4"><span className="font-medium">{r.label}</span> <span className="text-muted-foreground ml-2">{r.value}</span></td>
+                                <td className="py-2 pr-4">
+                                  {r.alert && r.alert !== '—' ? (
+                                    <Badge className={r.severity === 'critical' ? 'bg-red-100 text-red-800' : r.severity === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}>
+                                      {r.alert}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                                <td className="py-2">{r.resource}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
                 </div>
-              </CardContent>
-            </Card>
-            </div>
-            </div>
           )}
         </TabsContent>
 

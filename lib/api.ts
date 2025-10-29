@@ -178,6 +178,11 @@ class ApiClient {
     return this.request('/api/v1/monitoring/nks/network-traffic')
   }
 
+  // Monitoring details endpoint (Prometheus aggregated)
+  async getMonitoringDetails() {
+    return this.request('/api/v1/monitoring/metrics/details')
+  }
+
   async getNKSPodInfo() {
     return this.request('/api/v1/monitoring/nks/pod-info')
   }
