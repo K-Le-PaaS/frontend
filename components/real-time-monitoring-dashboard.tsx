@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import {
   Tooltip,
   ResponsiveContainer,
@@ -44,12 +45,45 @@ interface ClusterNode {
 
 interface Alert {
   id: string
-  severity: "critical" | "warning" | "info"
+  severity: "critical" | "warning" | "info" | "error"
   title: string
   description: string
-  timestamp: Date
-  resolved: boolean
+  timestamp: string
+  status: string
   source: string
+}
+
+interface AlertReport {
+  report_id: string
+  notification_id: string
+  created_at: string
+  summary: string
+  snapshot: {
+    cluster: string
+    generated_at: string
+    alert: {
+      id: string
+      title: string
+      severity: string
+      source: string
+      description: string
+    }
+    nodes: Array<{
+      instance: string
+      cpu: { utilization_pct?: number; load_avg_per_core?: number; iowait_pct?: number }
+      memory: { usage_pct?: number; swap_used_bytes?: number }
+      disk: { root_usage_pct?: number; io_saturation?: number; readonly?: boolean }
+      network: { rx_bps?: number; tx_bps?: number; rx_errs_ps?: number; rx_drops_ps?: number }
+      alerts?: { severity: 'critical' | 'warning' | 'info'; reasons: string[] }
+    }>
+    thresholds: {
+      cpu_pct: number
+      mem_pct: number
+      disk_root_pct: number
+      iowait_pct: number
+      io_sat: number
+    }
+  }
 }
 
 // NKS 모니터링 데이터 타입
@@ -98,35 +132,6 @@ const getNKSClusterNodes = (nksData: NKSMonitoringData | null): ClusterNode[] =>
   }))
 }
 
-const mockAlerts: Alert[] = [
-  {
-    id: "1",
-    severity: "critical",
-    title: "High Memory Usage",
-    description: "Node k8s-worker-01 memory usage is above 85%",
-    timestamp: new Date(Date.now() - 300000),
-    resolved: false,
-    source: "Prometheus",
-  },
-  {
-    id: "2",
-    severity: "warning",
-    title: "Pod Restart Loop",
-    description: "Pod api-service-xyz has restarted 5 times in the last hour",
-    timestamp: new Date(Date.now() - 600000),
-    resolved: false,
-    source: "Kubernetes",
-  },
-  {
-    id: "3",
-    severity: "info",
-    title: "Deployment Completed",
-    description: "Successfully deployed frontend-app v2.1.0",
-    timestamp: new Date(Date.now() - 900000),
-    resolved: true,
-    source: "CI/CD",
-  },
-]
 
 // NKS 실제 데이터를 기반으로 한 리소스 분포 (동적으로 업데이트됨)
 const getResourceDistribution = (nksData: NKSMonitoringData | null) => {
@@ -147,12 +152,24 @@ const getResourceDistribution = (nksData: NKSMonitoringData | null) => {
   ]
 }
 
-export function RealTimeMonitoringDashboard() {
+export function RealTimeMonitoringDashboard({ initialTab = 'nodes' as 'nodes' | 'details' | 'alerts' | 'resources' }) {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [nksData, setNksData] = useState<NKSMonitoringData | null>(null)
   const [nksLoading, setNksLoading] = useState(true)
   const [nksError, setNksError] = useState<string | null>(null)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+  
+  // Alert state
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [alertsLoading, setAlertsLoading] = useState(false)
+  const [alertsError, setAlertsError] = useState<string | null>(null)
+  
+  // Report modal state
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
+  const [report, setReport] = useState<AlertReport | null>(null)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
   type DetailNode = {
     instance: string
@@ -166,6 +183,39 @@ export function RealTimeMonitoringDashboard() {
   const [details, setDetails] = useState<DetailNode[]>([])
   const [detailsError, setDetailsError] = useState<string | null>(null)
   const [detailsCluster, setDetailsCluster] = useState<string>('nks-cluster')
+
+  // Tabs state synced with URL (?tab=details)
+  const [activeTab, setActiveTab] = useState<'nodes' | 'details' | 'alerts' | 'resources'>(initialTab)
+
+  useEffect(() => {
+    try {
+      const search = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined
+      const tab = search?.get('tab') as typeof activeTab | null
+      if (tab && ['nodes','details','alerts','resources'].includes(tab)) {
+        setActiveTab(tab)
+      }
+    } catch {}
+  }, [])
+
+  // Listen for external tab set events (e.g., sidebar forcing default tab)
+  useEffect(() => {
+    const handler = (e: any) => {
+      const next = e?.detail?.tab as 'nodes' | 'details' | 'alerts' | 'resources' | undefined
+      if (next && next !== activeTab) {
+        setActiveTab(next)
+      }
+    }
+    window.addEventListener('setMonitoringTab' as any, handler)
+    return () => window.removeEventListener('setMonitoringTab' as any, handler)
+  }, [activeTab])
+
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', activeTab)
+      window.history.replaceState({}, '', url.toString())
+    } catch {}
+  }, [activeTab])
 
   // 효율적인 개별 메트릭 폴링
   useEffect(() => {
@@ -255,6 +305,51 @@ export function RealTimeMonitoringDashboard() {
     return () => clearInterval(interval)
   }, [])
 
+  // Fetch alerts
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        setAlertsLoading(true)
+        setAlertsError(null)
+        const data = await apiClient.getAlerts('nks-cluster') as Alert[]
+        setAlerts(data || [])
+      } catch (error) {
+        console.error('Failed to fetch alerts:', error)
+        setAlertsError('알림을 불러오는데 실패했습니다.')
+        setAlerts([])
+      } finally {
+        setAlertsLoading(false)
+      }
+    }
+
+    fetchAlerts()
+    const interval = setInterval(fetchAlerts, 30000) // 30초마다 갱신
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleViewDetails = async (alert: Alert) => {
+    try {
+      setSelectedAlert(alert)
+      setReportLoading(true)
+      setReportError(null)
+      setIsReportModalOpen(true)
+
+      // 스냅샷 보고서 생성
+      const response = await apiClient.createAlertSnapshot(alert.id, 'nks-cluster') as { status: string; data: AlertReport }
+      
+      if (response.status === 'success' && response.data) {
+        setReport(response.data)
+      } else {
+        throw new Error('보고서 생성 실패')
+      }
+    } catch (error) {
+      console.error('Failed to create alert snapshot:', error)
+      setReportError('보고서를 생성하는데 실패했습니다.')
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   const getNodeStatusIcon = (status: ClusterNode["status"]) => {
     switch (status) {
       case "ready":
@@ -291,11 +386,22 @@ export function RealTimeMonitoringDashboard() {
   const getAlertBadge = (severity: Alert["severity"]) => {
     switch (severity) {
       case "critical":
+      case "error":
         return <Badge variant="destructive">Critical</Badge>
       case "warning":
         return <Badge className="bg-yellow-100 text-yellow-800">Warning</Badge>
       case "info":
         return <Badge className="bg-blue-100 text-blue-800">Info</Badge>
+      default:
+        return <Badge variant="secondary">{severity}</Badge>
+    }
+  }
+
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      return new Date(timestamp).toLocaleString()
+    } catch {
+      return timestamp
     }
   }
 
@@ -384,7 +490,7 @@ export function RealTimeMonitoringDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="nodes" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="nodes">Cluster Nodes</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
@@ -626,44 +732,204 @@ export function RealTimeMonitoringDashboard() {
               <CardDescription>Monitor and manage system alerts and notifications</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-96">
-                <div className="space-y-3">
-                  {mockAlerts.map((alert) => (
-                    <div key={alert.id} className={`border rounded-lg p-4 ${alert.resolved ? "opacity-60" : ""}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          {getAlertIcon(alert.severity)}
-                          <span className="font-medium">{alert.title}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {getAlertBadge(alert.severity)}
-                          {alert.resolved && <Badge variant="outline">Resolved</Badge>}
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground mb-2">{alert.description}</p>
-
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Source: {alert.source}</span>
-                        <span>{alert.timestamp.toLocaleString()}</span>
-                      </div>
-
-                      {!alert.resolved && (
-                        <div className="flex space-x-2 mt-3">
-                          <Button variant="outline" size="sm">
-                            Acknowledge
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Resolve
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {alertsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  <span className="ml-4 text-lg">알림 로딩 중...</span>
                 </div>
-              </ScrollArea>
+              ) : alertsError ? (
+                <div className="text-center py-12">
+                  <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                  <p className="text-red-600 text-lg">{alertsError}</p>
+                </div>
+              ) : alerts.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg">현재 활성 알림이 없습니다.</p>
+                </div>
+              ) : (
+                <ScrollArea className="h-96">
+                  {/* 그룹: 미해결 -> 해결됨, 각 그룹은 최신순 */}
+                  {(() => {
+                    const byTimeDesc = (a: Alert, b: Alert) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+                    const unresolved = alerts.filter(a => a.status !== 'resolved').sort(byTimeDesc)
+                    const resolved = alerts.filter(a => a.status === 'resolved').sort(byTimeDesc)
+                    const renderList = (list: Alert[]) => (
+                      <div className="space-y-3">
+                        {list.map((alert) => (
+                      <div key={alert.id} className={`border rounded-lg p-4 ${alert.status === "resolved" ? "opacity-60" : ""}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            {getAlertIcon(alert.severity)}
+                            <span className="font-medium">{alert.title}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {getAlertBadge(alert.severity)}
+                            {alert.status === "resolved" && <Badge variant="outline">Resolved</Badge>}
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground mb-2">{alert.description}</p>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Source: {alert.source}</span>
+                          <span>{formatTimestamp(alert.timestamp)}</span>
+                        </div>
+
+                        {alert.status !== "resolved" && (
+                          <div className="flex space-x-2 mt-3">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleViewDetails(alert)}
+                            >
+                              Details
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await apiClient.resolveAlert(alert.id)
+                                } catch {}
+                                // 클라이언트 상태에서 즉시 반영
+                                setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, status: 'resolved' } : a))
+                              }}
+                            >
+                              Resolve
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                        ))}
+                      </div>
+                    )
+                    return (
+                      <div className="space-y-6 p-1">
+                        {renderList(unresolved)}
+                        <div className="pt-2" />
+                        {renderList(resolved)}
+                      </div>
+                    )
+                  })()}
+                </ScrollArea>
+              )}
             </CardContent>
           </Card>
+
+          {/* Report Modal */}
+          <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  Alert Report: {selectedAlert?.title}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedAlert && `Severity: ${selectedAlert.severity} | Source: ${selectedAlert.source}`}
+                </DialogDescription>
+              </DialogHeader>
+              
+              {reportLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  <span className="ml-4 text-lg">보고서 생성 중...</span>
+                </div>
+              ) : reportError ? (
+                <div className="text-center py-12">
+                  <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                  <p className="text-red-600 text-lg">{reportError}</p>
+                </div>
+              ) : report ? (
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-2">Report Summary</h3>
+                    <p className="text-sm text-muted-foreground">{report.summary}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Generated at: {formatTimestamp(report.created_at)}
+                    </p>
+                  </div>
+
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Snapshot Details</h3>
+                    <div className="space-y-2 mb-4">
+                      <div><span className="font-medium">Cluster:</span> {report.snapshot.cluster}</div>
+                      <div><span className="font-medium">Generated:</span> {formatTimestamp(report.snapshot.generated_at)}</div>
+                    </div>
+
+                    {report.snapshot.nodes && report.snapshot.nodes.length > 0 && (
+                      <div className="space-y-4 mt-4">
+                        <h4 className="font-medium">Node Metrics</h4>
+                        {report.snapshot.nodes.map((node, idx) => (
+                          <Card key={idx} className="p-3">
+                            <CardTitle className="text-sm mb-2">{node.instance}</CardTitle>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                              <div>
+                                <span className="text-muted-foreground">CPU:</span> {node.cpu.utilization_pct?.toFixed(2) ?? 'N/A'}%
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Memory:</span> {node.memory.usage_pct?.toFixed(2) ?? 'N/A'}%
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Disk:</span> {node.disk.root_usage_pct?.toFixed(2) ?? 'N/A'}%
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">IO Wait:</span> {node.cpu.iowait_pct?.toFixed(2) ?? 'N/A'}%
+                              </div>
+                            </div>
+                            {node.alerts && node.alerts.reasons.length > 0 && (
+                              <div className="mt-2">
+                                <Badge variant={node.alerts.severity === 'critical' ? 'destructive' : node.alerts.severity === 'warning' ? 'secondary' : 'outline'}>
+                                  {node.alerts.reasons.join(', ')}
+                                </Badge>
+                              </div>
+                            )}
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+
+                    {report.snapshot.thresholds && (
+                      <div className="mt-4 pt-4 border-t">
+                        <h4 className="font-medium mb-2">Thresholds</h4>
+                        <div className="text-xs space-y-1">
+                          <div>CPU: {report.snapshot.thresholds.cpu_pct}%</div>
+                          <div>Memory: {report.snapshot.thresholds.mem_pct}%</div>
+                          <div>Disk: {report.snapshot.thresholds.disk_root_pct}%</div>
+                          <div>I/O Wait: {report.snapshot.thresholds.iowait_pct}%</div>
+                          <div>I/O Saturation: {report.snapshot.thresholds.io_sat}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(report.snapshot, null, 2))
+                      }}
+                    >
+                      Copy JSON
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const blob = new Blob([JSON.stringify(report.snapshot, null, 2)], { type: 'application/json' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `alert-report-${report.report_id}.json`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="resources" className="space-y-4">

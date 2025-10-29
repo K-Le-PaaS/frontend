@@ -77,7 +77,20 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
                     : "text-sidebar-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground",
                   collapsed && "px-2",
                 )}
-                onClick={() => setActiveView(item.href)}
+                onClick={() => {
+                  if (item.href === "monitoring") {
+                    try {
+                      const url = new URL(window.location.href)
+                      // 기본 탭을 nodes로 강제 설정하여 이전에 남은 tab 파라미터를 초기화
+                      url.searchParams.set('tab', 'nodes')
+                      window.history.replaceState({}, '', url.toString())
+                      // 현재 모니터링 화면에 있을 수도 있으므로 이벤트로 탭 전환 신호도 보냄
+                      const evt = new CustomEvent('setMonitoringTab', { detail: { tab: 'nodes' } })
+                      window.dispatchEvent(evt)
+                    } catch {}
+                  }
+                  setActiveView(item.href)
+                }}
               >
                 <Icon className={cn("w-4 h-4", !collapsed && "mr-3")} />
                 {!collapsed && item.name}

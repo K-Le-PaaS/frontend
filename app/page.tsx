@@ -15,6 +15,7 @@ import { SettingsPage } from "@/components/settings/SettingsPage"
 export default function HomePage() {
   const [activeView, setActiveView] = useState("dashboard")
   const [githubInitialTab, setGithubInitialTab] = useState("repositories")
+  const [monitoringInitialTab, setMonitoringInitialTab] = useState<'nodes' | 'details' | 'alerts' | 'resources'>('nodes')
   const [scrollToMessageId, setScrollToMessageId] = useState<number | undefined>(undefined)
   const { toast } = useToast()
 
@@ -101,7 +102,7 @@ export default function HomePage() {
           initialTab={githubInitialTab}
         />
       case "monitoring":
-        return <RealTimeMonitoringDashboard />
+        return <RealTimeMonitoringDashboard initialTab={monitoringInitialTab} />
       case "settings":
         return <SettingsPage />
       case "dashboard":
@@ -116,6 +117,10 @@ export default function HomePage() {
           onNavigateToPullRequests={() => {
             setGithubInitialTab("pullrequests")
             setActiveView("github")
+          }}
+          onNavigateToMonitoring={(tab = 'nodes') => {
+            setMonitoringInitialTab(tab)
+            setActiveView("monitoring")
           }}
         />
     }
