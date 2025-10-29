@@ -33,6 +33,7 @@ import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
 // import { CostAnalysisRenderer } from "./CostAnalysisRenderer"
 // import { ErrorRenderer } from "./ErrorRenderer"
 import { EndpointRenderer } from "./EndpointRenderer"
+import { ListCommandsRenderer } from "./ListCommandsRenderer"
 
 interface NLPResponseRendererProps {
   response: NLPResponse
@@ -188,13 +189,16 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     
     case 'rollback':
       return <RollbackRenderer response={response} />
-    
+
+    case 'list_commands':
+      return <ListCommandsRenderer response={response} />
+
     // case 'deploy':
     //   return <DeployRenderer response={response} />
-    
+
     // case 'cost_analysis':
     //   return <CostAnalysisRenderer response={response} />
-    
+
     default:
       // 기본 JSON 렌더링 (임시)
       return (

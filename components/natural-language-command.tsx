@@ -61,11 +61,11 @@ interface PendingAction {
 }
 
 const suggestedCommands = [
+  "명령어 목록 보여줘",
   "디플로이먼트 목록 보여줘",
   "접속 주소 목록 보여줘",
   "전체적인 상황 보여줘",
-  "K-Le-PaaS/test01 배포해줘",
-  "K-Le-PaaS/test01 롤백목록 보여줘",
+  "K-Le-PaaS/test01 롤백 목록 보여줘",
   "K-Le-PaaS/test01 파드 상태 보여줘",
 ]
 
