@@ -236,7 +236,7 @@ export function DeploymentDetailRenderer({ response }: DeploymentDetailRendererP
             <div className="flex flex-wrap gap-2">
               {Object.entries(labels).map(([k, v]) => (
                 <Badge key={k} variant="secondary" className="font-mono">
-                  {k}={v}
+                  {k}={String(v)}
                 </Badge>
               ))}
             </div>
@@ -286,9 +286,9 @@ export function DeploymentDetailRenderer({ response }: DeploymentDetailRendererP
             <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
               <div className="font-medium text-muted-foreground">Selector:</div>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(selector).map(([k, v]) => (
+              {Object.entries(selector).map(([k, v]) => (
                   <Badge key={k} variant="secondary" className="font-mono">
-                    {k}={v}
+                  {k}={String(v)}
                   </Badge>
                 ))}
               </div>
@@ -340,9 +340,9 @@ export function DeploymentDetailRenderer({ response }: DeploymentDetailRendererP
                 <div className="grid grid-cols-[100px_1fr] gap-2 text-sm mb-2">
                   <div className="font-medium text-muted-foreground">Labels:</div>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(podTemplate.labels).map(([k, v]) => (
+                  {Object.entries(podTemplate.labels).map(([k, v]) => (
                       <Badge key={k} variant="secondary" className="font-mono">
-                        {k}={v}
+                      {k}={String(v)}
                       </Badge>
                     ))}
                   </div>
@@ -578,7 +578,7 @@ export function DeploymentDetailRenderer({ response }: DeploymentDetailRendererP
             <div className="font-medium text-sm mb-2">Events:</div>
             <div className="pl-4">
               {events.length === 0 ? (
-                <p className="text-sm text-muted-foreground"><none></none></p>
+                <p className="text-sm text-muted-foreground">{"<none>"}</p>
               ) : (
                 <div className="overflow-x-auto border rounded-lg">
                   <table className="w-full text-sm">
