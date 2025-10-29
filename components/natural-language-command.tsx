@@ -578,34 +578,36 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
           </Avatar>
         )}
 
-        {/* 복사 버튼 */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 shrink-0"
-          onClick={async () => {
-            // HTML 태그 제거 후 순수 텍스트만 복사
-            const textContent = message.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
-            const success = await copyToClipboard(textContent)
-            
-            if (success) {
-              toast({
-                title: "복사 완료",
-                description: "메시지가 클립보드에 복사되었습니다.",
-                duration: 2000,
-              })
-            } else {
-              toast({
-                title: "복사 실패",
-                description: "클립보드 복사에 실패했습니다.",
-                variant: "destructive",
-                duration: 2000,
-              })
-            }
-          }}
-        >
-          <Copy className="w-3 h-3" />
-        </Button>
+        {/* 복사 버튼: 사용자 메시지에만 표시 */}
+        {isUser && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 shrink-0"
+            onClick={async () => {
+              // HTML 태그 제거 후 순수 텍스트만 복사
+              const textContent = message.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+              const success = await copyToClipboard(textContent)
+              
+              if (success) {
+                toast({
+                  title: "복사 완료",
+                  description: "메시지가 클립보드에 복사되었습니다.",
+                  duration: 2000,
+                })
+              } else {
+                toast({
+                  title: "복사 실패",
+                  description: "클립보드 복사에 실패했습니다.",
+                  variant: "destructive",
+                  duration: 2000,
+                })
+              }
+            }}
+          >
+            <Copy className="w-3 h-3" />
+          </Button>
+        )}
 
         <div className={cn("flex flex-col gap-2", isUser ? "items-end" : "items-start", "max-w-[70%]")}>
           <div
