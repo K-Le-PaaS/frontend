@@ -416,8 +416,8 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                       </div>
                       {repo.latest_deployment ? (
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="font-mono bg-muted px-1 rounded">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap overflow-hidden">
+                            <span className="font-mono bg-muted px-1 rounded truncate max-w-[180px]">
                               {formatImageDisplay(repo.owner, repo.repo, repo.latest_deployment.image.tag)}
                             </span>
                             <span>•</span>
@@ -428,7 +428,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
                               </span> pods ready
                             </span>
                             <span>•</span>
-                            <span>{formatTimeAgo(repo.latest_deployment.timing.started_at)}</span>
+                            <span className="truncate">{formatTimeAgo(repo.latest_deployment.timing.started_at)}</span>
                             {repo.auto_deploy_enabled && (
                               <>
                                 <span>•</span>
