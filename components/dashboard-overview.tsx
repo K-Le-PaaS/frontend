@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye, Zap, GitPullRequest } from "lucide-react"
+import { Server, GitBranch, AlertTriangle, CheckCircle, Clock, Cpu, HardDrive, Github, Eye, Zap, GitPullRequest, Settings } from "lucide-react"
 import { apiClient, api } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { formatTimeAgo } from "@/lib/utils"
@@ -84,9 +84,10 @@ interface DashboardOverviewProps {
   onNavigateToChat?: (commandId: number) => void
   onNavigateToRepositories?: () => void
   onNavigateToPullRequests?: () => void
+  onNavigateToMonitoring?: (tab?: 'nodes' | 'details' | 'alerts' | 'resources') => void
 }
 
-export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, onNavigateToRepositories, onNavigateToPullRequests }: DashboardOverviewProps) {
+export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, onNavigateToRepositories, onNavigateToPullRequests, onNavigateToMonitoring }: DashboardOverviewProps) {
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
   const [repositories, setRepositories] = useState<RepositoryWorkload[]>([])
@@ -94,6 +95,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
   const [deploymentConfigs, setDeploymentConfigs] = useState<Record<string, { replica_count: number }>>({})
   const [cpuUsage, setCpuUsage] = useState(0)
   const [memoryUsage, setMemoryUsage] = useState(0)
+  const [alerts, setAlerts] = useState<Array<{ id: string; title?: string; message?: string; severity?: string; created_at?: string }>>([])
 
   // 사용자 인증 상태 확인
   const { user, isLoading: authLoading } = useAuth()
@@ -148,6 +150,15 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
           }
         } catch (error) {
           console.error('Failed to fetch memory metrics:', error)
+        }
+
+        // Fetch latest alerts (limit to 3 in render)
+        try {
+          const alertList = await apiClient.getAlerts('nks-cluster') as any[]
+          setAlerts(Array.isArray(alertList) ? alertList.slice(0, 3) : [])
+        } catch (error) {
+          console.error('Failed to fetch alerts:', error)
+          setAlerts([])
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
@@ -209,7 +220,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
   if (!user) {
     return (
       <div className="space-y-6">
-        <Card>
+        <Card className="lg:order-4 lg:col-start-4">
           <CardHeader>
             <CardTitle>대시보드</CardTitle>
             <CardDescription>
@@ -241,7 +252,7 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
     <div className="space-y-6">
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="lg:order-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Connected Repositories</CardTitle>
             <Github className="h-4 w-4 text-muted-foreground" />
@@ -284,7 +295,55 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Alerts Card */}
+        <Card className="lg:order-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {alerts && alerts.length > 0 ? (
+                alerts.slice(0, 3).map((a) => (
+                  <div key={`dash-alert-${a.id}`} className="flex items-center justify-between rounded-md border px-2 py-2">
+                    <div className="min-w-0 mr-2">
+                      <p className="text-sm font-medium truncate">{a.title || a.message || 'Alert'}</p>
+                    </div>
+                    <Badge variant={a.severity === 'critical' ? 'destructive' : 'secondary'} className="text-[10px]">
+                      {a.severity || 'info'}
+                    </Badge>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-muted-foreground text-sm">No active alerts</div>
+              )}
+            </div>
+            <div className="mt-3 pt-3 border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => {
+                  if (onNavigateToMonitoring) {
+                    onNavigateToMonitoring('alerts')
+                  }
+                  try {
+                    const url = new URL(window.location.href)
+                    url.searchParams.set('view', 'monitoring')
+                    url.searchParams.set('tab', 'alerts')
+                    window.history.replaceState({}, '', url.toString())
+                  } catch {}
+                  if (!onNavigateToMonitoring) {
+                    router.push('/?view=monitoring&tab=alerts')
+                  }
+                }}
+              >
+                View All
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="lg:order-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pull Requests</CardTitle>
             <GitPullRequest className="h-4 w-4 text-muted-foreground" />
@@ -327,25 +386,57 @@ export function DashboardOverview({ onNavigateToDeployments, onNavigateToChat, o
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:order-3">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
-            <Cpu className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">System Utilization</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{cpuUsage.toFixed(2)}%</div>
-            <Progress value={cpuUsage} className="mt-2" />
-          </CardContent>
-        </Card>
+            {/* CPU */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">CPU Usage</div>
+                <div className="text-sm text-muted-foreground">{cpuUsage.toFixed(2)}%</div>
+              </div>
+              <Progress value={cpuUsage} className="mt-2" />
+            </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{memoryUsage.toFixed(2)}%</div>
-            <Progress value={memoryUsage} className="mt-2" />
+            {/* Memory with alerts */}
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <HardDrive className="h-4 w-4 text-muted-foreground" />
+                  Memory Usage
+                </div>
+                <div className="text-sm text-muted-foreground">{memoryUsage.toFixed(2)}%</div>
+              </div>
+              <Progress value={memoryUsage} className="mt-2 mb-3" />
+
+              {/* Removed inline alerts under memory to avoid duplication with Alerts card */}
+              <div className="mt-3 pt-3 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => {
+                    if (onNavigateToMonitoring) {
+                      onNavigateToMonitoring('details')
+                    }
+                    try {
+                      const url = new URL(window.location.href)
+                      url.searchParams.set('view', 'monitoring')
+                      url.searchParams.set('tab', 'details')
+                      window.history.replaceState({}, '', url.toString())
+                    } catch {}
+                    if (!onNavigateToMonitoring) {
+                      router.push('/?view=monitoring&tab=details')
+                    }
+                  }}
+                >
+                  View Details
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

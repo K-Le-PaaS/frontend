@@ -187,6 +187,32 @@ class ApiClient {
     return this.request('/api/v1/monitoring/nks/pod-info')
   }
 
+  // Alert endpoints
+  async getAlerts(cluster: string = 'nks-cluster') {
+    return this.request(`/api/v1/monitoring/alerts?cluster=${encodeURIComponent(cluster)}`)
+  }
+
+  async createAlertSnapshot(alertId: string, cluster: string = 'nks-cluster') {
+    return this.request(`/api/v1/monitoring/alerts/${encodeURIComponent(alertId)}/snapshot?cluster=${encodeURIComponent(cluster)}`, {
+      method: 'POST',
+    })
+  }
+
+  async getAlertReport(reportId: string) {
+    return this.request(`/api/v1/monitoring/alert-reports/${encodeURIComponent(reportId)}`)
+  }
+
+  async getAlertReports(alertId: string, limit: number = 20) {
+    return this.request(`/api/v1/monitoring/alerts/${encodeURIComponent(alertId)}/reports?limit=${limit}`)
+  }
+
+  async resolveAlert(alertId: string, reason?: string) {
+    return this.request(`/api/v1/monitoring/alerts/${encodeURIComponent(alertId)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    })
+  }
+
   // OAuth2 endpoints
   async getOAuth2Url(provider: 'google' | 'github') {
     // 브라우저에서 현재 origin 가져오기
