@@ -5,10 +5,10 @@
  * 백엔드 ResponseFormatter에서 생성하는 구조화된 응답과 일치합니다.
  */
 
-export type NLPResponseType = 
-  | 'list_pods' 
-  | 'list_rollback' 
-  | 'status' 
+export type NLPResponseType =
+  | 'list_pods'
+  | 'list_rollback'
+  | 'status'
   | 'pod_status'
   | 'service_status'
   | 'deployment_status'
@@ -29,6 +29,7 @@ export type NLPResponseType =
   | 'rollback'
   | 'cost_analysis'
   | 'rollback_execution'
+  | 'list_commands'
   | 'unknown'
   | 'error'
   | 'command_error'
@@ -793,6 +794,40 @@ export interface UnknownResponse extends FormattedResponse {
   metadata: UnknownMetadata
 }
 
+// 명령어 목록 관련 타입
+export interface CommandInfo {
+  name: string
+  name_ko: string
+  desc: string
+  example: string
+}
+
+export interface CommandCategory {
+  category: string
+  icon: string
+  commands: CommandInfo[]
+}
+
+export interface ListCommandsData {
+  categories: CommandCategory[]
+  total_commands: number
+  help_text: string[]
+}
+
+export interface ListCommandsMetadata {
+  total_commands: number
+  category_count: number
+}
+
+export interface ListCommandsResponse extends FormattedResponse {
+  type: 'list_commands'
+  data: {
+    formatted: ListCommandsData
+    raw?: any
+  }
+  metadata: ListCommandsMetadata
+}
+
 // 모든 응답 타입의 유니온
 export type NLPResponse = 
   | PodListResponse
@@ -818,6 +853,7 @@ export type NLPResponse =
   | RollbackResponse
   | CostAnalysisResponse
   | RollbackExecutionResponse
+  | ListCommandsResponse
   | ErrorResponse
   | CommandErrorResponse
   | UnknownResponse
