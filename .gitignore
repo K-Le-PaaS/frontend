@@ -139,3 +139,5 @@ coverage/
 .env.test.local
 .env.production.local
 # Note: .env.production은 커밋 가능 (공개 URL만 포함)
+
+klepaas.db*
