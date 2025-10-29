@@ -23,7 +23,7 @@ import { ScaleRenderer } from "./ScaleRenderer"
 import { RestartRenderer } from "./RestartRenderer"
 import { RollbackRenderer } from "./RollbackRenderer"
 import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
-// import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
+import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
 // import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
 // import { OverviewRenderer } from "./OverviewRenderer"
 // import { EndpointRenderer } from "./EndpointRenderer"
@@ -168,8 +168,8 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     case 'deploy_github_repository':
       return <DeployResponseRenderer response={response} onNavigateToPipelines={onNavigateToPipelines} />
     
-    // case 'get_service':
-    //   return <ServiceDetailRenderer response={response} />
+    case 'get_service':
+      return <ServiceDetailRenderer response={response} />
     
     case 'get_deployment':
       return <DeploymentDetailRenderer response={response} />
