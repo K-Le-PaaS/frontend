@@ -42,11 +42,9 @@ export function RecentCommands({ onNavigateToChat }: RecentCommandsProps = {}) {
       const { apiClient } = await import("@/lib/api")
       // 더 많은 데이터를 조회한 후 프론트엔드에서 필터링
       const allData = await apiClient.getCommandHistory(50, 0)
-      console.log('📊 Recent Commands 조회된 전체 데이터:', allData)
       
       // 프론트엔드에서 유저 메시지만 필터링하고 5개로 제한
       const userMessages = allData.filter(cmd => cmd.tool === "user_message").slice(0, 5)
-      console.log('📊 필터링된 유저 메시지 (5개):', userMessages)
       setCommands(userMessages)
     } catch (error) {
       console.error("Failed to fetch command history:", error)

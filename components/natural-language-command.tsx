@@ -81,20 +81,21 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [isScrollingToMessage, setIsScrollingToMessage] = useState(false)
+  // 터미널 스타일 입력 히스토리 (사용자 메시지만)
+  const [history, setHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   // 스크롤을 맨 아래로 이동하는 함수 (다중 방법 시도)
   const scrollToBottom = () => {
-    console.log('🔄 스크롤 시도 중...')
     
     if (scrollAreaRef.current) {
       // ScrollArea의 viewport 요소 찾기
       const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
       
       if (viewport) {
-        console.log('📏 viewport 높이:', viewport.scrollHeight, '현재 스크롤:', viewport.scrollTop)
         
         // 방법 1: scrollTop 직접 설정
         viewport.scrollTop = viewport.scrollHeight
@@ -105,7 +106,6 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
         // 방법 3: 마지막 메시지로 scrollIntoView
         const lastMessage = viewport.querySelector('[data-message]:last-child') as HTMLElement
         if (lastMessage) {
-          console.log('🎯 마지막 메시지로 scrollIntoView 시도')
           lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' })
         }
         
@@ -117,34 +117,28 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
         // 방법 5: DOM 조작으로 강제 스크롤
         const scrollContainer = viewport.parentElement
         if (scrollContainer) {
-          console.log('🔧 부모 컨테이너 조작 시도')
           scrollContainer.scrollTop = scrollContainer.scrollHeight
         }
         
         // 방법 6: 전체 페이지 스크롤도 시도
         setTimeout(() => {
-          console.log('🌐 전체 페이지 스크롤 시도')
           window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
         }, 50)
         
         // 추가 확인
-        setTimeout(() => {
-          console.log('✅ 스크롤 후 위치:', viewport.scrollTop)
-        }, 100)
+        setTimeout(() => {}, 100)
       } else {
-        console.log('❌ viewport를 찾을 수 없음')
+        // no viewport
       }
     } else {
-      console.log('❌ scrollAreaRef가 없음')
+      // no ref
     }
   }
 
   // 특정 메시지로 스크롤하는 함수 (ScrollArea 최적화)
   const scrollToMessage = (messageId: string) => {
-    console.log('🎯 특정 메시지로 스크롤 시도:', messageId)
     
     if (!scrollAreaRef.current) {
-      console.log('❌ scrollAreaRef가 없음')
       return
     }
 
@@ -152,13 +146,11 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
     const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
     
     if (viewport) {
-      console.log('📏 viewport 찾음, 메시지 요소 검색 중...')
       
       // 특정 메시지 요소 찾기
       const messageElement = viewport.querySelector(`[data-message="${messageId}"]`)
       
       if (messageElement) {
-        console.log('✅ 메시지 요소 찾음, 스크롤 시도')
         // 메시지 요소로 스크롤
         messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
         
@@ -169,16 +161,13 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
           const scrollTop = viewport.scrollTop + (elementRect.top - viewportRect.top) - (viewportRect.height / 2)
           
           viewport.scrollTo({ top: scrollTop, behavior: 'smooth' })
-          console.log('📍 viewport 직접 스크롤 완료')
+          // done
         }, 100)
       } else {
-        console.log('❌ 메시지 요소를 찾을 수 없음:', messageId)
-        // 모든 메시지 요소 확인
-        const allMessages = viewport.querySelectorAll('[data-message]')
-        console.log('📋 사용 가능한 메시지 ID들:', Array.from(allMessages).map(el => el.getAttribute('data-message')))
+        // no element
       }
     } else {
-      console.log('❌ viewport를 찾을 수 없음')
+      // no viewport
     }
   }
 
@@ -195,8 +184,6 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
   // 특정 메시지로 스크롤 (대시보드에서 명령어 클릭 시)
   useEffect(() => {
     if (scrollToMessageId && messages.length > 0) {
-      console.log('🎯 scrollToMessageId 처리:', scrollToMessageId)
-      console.log('📊 현재 메시지 수:', messages.length)
       
       // 히스토리 클릭 시 스크롤 상태 설정
       setIsScrollingToMessage(true)
@@ -205,28 +192,22 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
       setTimeout(() => {
         // 사용자 메시지 ID 찾기
         const userMessageId = `history-${scrollToMessageId}`
-        console.log('🔍 찾는 사용자 메시지 ID:', userMessageId)
         
         // 해당 사용자 메시지 다음의 AI 응답 메시지 찾기
         const userMessageIndex = messages.findIndex(msg => msg.id === userMessageId)
-        console.log('📍 사용자 메시지 인덱스:', userMessageIndex)
         
         if (userMessageIndex !== -1 && userMessageIndex + 1 < messages.length) {
           // 다음 메시지가 AI 응답인 경우 해당 메시지로 스크롤
           const aiResponseMessage = messages[userMessageIndex + 1]
-          console.log('🤖 AI 응답 메시지:', aiResponseMessage.id, aiResponseMessage.role)
           
           if (aiResponseMessage.role === 'assistant') {
-            console.log('✅ AI 응답으로 스크롤')
             scrollToMessage(aiResponseMessage.id)
           } else {
             // AI 응답이 없으면 사용자 메시지로 스크롤
-            console.log('⚠️ AI 응답이 아님, 사용자 메시지로 스크롤')
             scrollToMessage(userMessageId)
           }
         } else {
           // AI 응답이 없으면 사용자 메시지로 스크롤
-          console.log('⚠️ AI 응답 없음, 사용자 메시지로 스크롤')
           scrollToMessage(userMessageId)
         }
         
@@ -246,25 +227,21 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
   // 컴포넌트 마운트 시 스크롤 초기화 (히스토리 클릭 시 완전 차단)
   useEffect(() => {
     if (!scrollToMessageId && !isScrollingToMessage) {
-      console.log('🚀 컴포넌트 마운트됨, 스크롤 시작')
       
       // 여러 번 시도하여 확실하게 스크롤
       setTimeout(() => {
-        console.log('⏰ 200ms 후 스크롤 시도')
         scrollToBottom()
       }, 200)
       
       setTimeout(() => {
-        console.log('⏰ 500ms 후 스크롤 시도')
         scrollToBottom()
       }, 500)
       
       setTimeout(() => {
-        console.log('⏰ 1000ms 후 스크롤 시도')
         scrollToBottom()
       }, 1000)
     } else {
-      console.log('🚀 컴포넌트 마운트됨, 하지만 scrollToMessageId가 있거나 히스토리 클릭 중이므로 자동 스크롤 건너뜀')
+      // skip auto scroll when focusing a message
     }
   }, [scrollToMessageId, isScrollingToMessage])
 
@@ -273,9 +250,7 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
     const initializeChat = async () => {
       try {
         // DB에서 직접 명령어 히스토리 조회 (Redis 세션 조회 제거)
-        console.log('🔍 DB에서 명령어 히스토리 조회 중...')
         const commandHistory = await apiClient.getConversationHistory(50, 0)
-        console.log('📊 조회된 명령어 히스토리:', commandHistory)
         
         if (commandHistory && commandHistory.length > 0) {
           // command_history를 메시지로 변환
@@ -288,30 +263,37 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
             result: cmd.result,
           }))
           
-          console.log('✅ 변환된 메시지들:', historyMessages)
           setMessages(historyMessages)
+
+          // 터미널 히스토리 초기화: 사용자 메시지만, 최신 순서대로
+          const userTexts = commandHistory
+            .filter((cmd: any) => cmd.tool === "user_message")
+            .map((cmd: any) => cmd.command_text)
+          // 중복 제거(최근 것을 우선 유지)
+          const deduped: string[] = []
+          for (let i = userTexts.length - 1; i >= 0; i--) {
+            const t = userTexts[i]
+            if (!deduped.includes(t)) deduped.unshift(t)
+          }
+          setHistory(deduped)
           
           // 대화 히스토리 로딩 후 스크롤을 맨 아래로 이동 (히스토리 클릭 시 완전 차단)
           if (!scrollToMessageId && !isScrollingToMessage) {
             setTimeout(() => {
-              console.log('📜 히스토리 로드 후 스크롤 시도')
               scrollToBottom()
             }, 100)
             
             setTimeout(() => {
-              console.log('📜 히스토리 로드 후 추가 스크롤 시도')
               scrollToBottom()
             }, 300)
             
             setTimeout(() => {
-              console.log('📜 히스토리 로드 후 최종 스크롤 시도')
               scrollToBottom()
             }, 600)
           } else {
-            console.log('📜 히스토리 로드됨, 하지만 scrollToMessageId가 있거나 히스토리 클릭 중이므로 자동 스크롤 건너뜀')
+            // skip auto scroll
           }
         } else {
-          console.log('⚠️ 명령어 히스토리가 비어있음 - 환영 메시지 표시')
           // 명령어 히스토리가 없으면 환영 메시지 표시
           setMessages([
             {
@@ -385,6 +367,9 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setLoading(true)
+    // 히스토리에 추가 (연속 중복 방지)
+    setHistory((prev) => (prev.length === 0 || prev[prev.length - 1] !== text ? [...prev, text] : prev))
+    setHistoryIndex(null)
     
     // 새로운 메시지 추가 시 자동 스크롤 활성화
     setIsScrollingToMessage(false)
@@ -774,10 +759,38 @@ export function NaturalLanguageCommand({ onNavigateToPipelines, scrollToMessageI
               <Input
                 ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value)
+                  if (historyIndex !== null) setHistoryIndex(null)
+                }}
                 placeholder="메시지를 입력하세요..."
                 disabled={loading}
                 className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowUp") {
+                    if (history.length === 0) return
+                    e.preventDefault()
+                    if (historyIndex === null) {
+                      setHistoryIndex(history.length - 1)
+                      setInput(history[history.length - 1] || "")
+                    } else if (historyIndex > 0) {
+                      const next = historyIndex - 1
+                      setHistoryIndex(next)
+                      setInput(history[next] || "")
+                    }
+                  } else if (e.key === "ArrowDown") {
+                    if (history.length === 0 || historyIndex === null) return
+                    e.preventDefault()
+                    if (historyIndex < history.length - 1) {
+                      const next = historyIndex + 1
+                      setHistoryIndex(next)
+                      setInput(history[next] || "")
+                    } else {
+                      setHistoryIndex(null)
+                      setInput("")
+                    }
+                  }
+                }}
               />
               <Button type="submit" disabled={!input.trim() || loading}>
                 {loading ? (

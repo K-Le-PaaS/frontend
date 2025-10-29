@@ -41,9 +41,7 @@ interface NLPResponseRendererProps {
 
 export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPipelines }: NLPResponseRendererProps) {
   
-  // 디버깅을 위한 콘솔 로그
-  console.log('NLPResponseRenderer - response:', response)
-  console.log('NLPResponseRenderer - response.type:', response.type)
+  // 불필요한 디버그 로그 제거; 에러 상황만 렌더러에서 표기
   
   // 에러 응답 처리
   if (response.type === 'error') {

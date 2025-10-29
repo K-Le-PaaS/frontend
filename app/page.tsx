@@ -10,12 +10,41 @@ import { NaturalLanguageCommand } from "@/components/natural-language-command"
 import { DeploymentStatusMonitoring } from "@/components/deployment-status-monitoring"
 import { GitHubIntegrationPanel } from "@/components/github-integration-panel"
 import { RealTimeMonitoringDashboard } from "@/components/real-time-monitoring-dashboard"
+import { SettingsPage } from "@/components/settings/SettingsPage"
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState("dashboard")
   const [githubInitialTab, setGithubInitialTab] = useState("repositories")
   const [scrollToMessageId, setScrollToMessageId] = useState<number | undefined>(undefined)
   const { toast } = useToast()
+
+  const VIEW_KEY = "kpaas_active_view"
+  const VALID_VIEWS = ["dashboard", "commands", "deployments", "github", "monitoring", "settings"] as const
+
+  // Restore active view from URL (?view=) or localStorage
+  useEffect(() => {
+    try {
+      const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : undefined
+      const fromUrl = search?.get("view") || undefined
+      const fromStorage = typeof window !== "undefined" ? window.localStorage.getItem(VIEW_KEY) || undefined : undefined
+      const candidate = fromUrl || fromStorage
+      if (candidate && (VALID_VIEWS as readonly string[]).includes(candidate)) {
+        setActiveView(candidate)
+      }
+    } catch {}
+  }, [])
+
+  // Persist active view to URL and localStorage
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(VIEW_KEY, activeView)
+        const url = new URL(window.location.href)
+        url.searchParams.set("view", activeView)
+        window.history.replaceState({}, "", url.toString())
+      }
+    } catch {}
+  }, [activeView])
 
   // Show Slack connected toast when redirected with ?slack=connected
   useEffect(() => {
@@ -73,6 +102,8 @@ export default function HomePage() {
         />
       case "monitoring":
         return <RealTimeMonitoringDashboard />
+      case "settings":
+        return <SettingsPage />
       case "dashboard":
       default:
         return <DashboardOverview 
