@@ -22,6 +22,7 @@ import { DeployResponseRenderer } from "./DeployResponseRenderer"
 import { ScaleRenderer } from "./ScaleRenderer"
 import { RestartRenderer } from "./RestartRenderer"
 import { RollbackRenderer } from "./RollbackRenderer"
+import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
 // import { ServiceDetailRenderer } from "./ServiceDetailRenderer"
 // import { DeploymentDetailRenderer } from "./DeploymentDetailRenderer"
 // import { OverviewRenderer } from "./OverviewRenderer"
@@ -170,8 +171,8 @@ export function NLPResponseRenderer({ response, onRollbackClick, onNavigateToPip
     // case 'get_service':
     //   return <ServiceDetailRenderer response={response} />
     
-    // case 'get_deployment':
-    //   return <DeploymentDetailRenderer response={response} />
+    case 'get_deployment':
+      return <DeploymentDetailRenderer response={response} />
     
     // case 'overview':
     //   return <OverviewRenderer response={response} />

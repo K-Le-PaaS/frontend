@@ -202,11 +202,7 @@ export function ScaleDialog({
             </div>
           )}
 
-          {/* Estimated Resources (Optional) */}
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>• 각 Pod는 약 100Mi 메모리, 100m CPU를 사용합니다</p>
-            <p>• 예상 총 리소스: {(targetReplicas * 100).toFixed(0)}Mi 메모리, {(targetReplicas * 100)}m CPU</p>
-          </div>
+          
         </div>
 
         <DialogFooter>

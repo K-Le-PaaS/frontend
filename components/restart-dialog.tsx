@@ -83,17 +83,11 @@ export function RestartDialog({
 
             {currentCommitSha && (
               <div className="flex items-center gap-2">
-                <GitCommit className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">커밋:</span>
-                <code className="font-mono text-xs bg-background px-2 py-0.5 rounded">
+                <GitCommit className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">커밋:</span>
+                <code className="font-mono text-sm bg-background px-2 py-1 rounded">
                   {currentCommitSha.slice(0, 7)}
                 </code>
-              </div>
-            )}
-
-            {currentImage && (
-              <div className="text-xs text-muted-foreground break-all">
-                <span className="font-semibold">이미지:</span> {currentImage}
               </div>
             )}
           </div>
