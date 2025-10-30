@@ -66,7 +66,7 @@ const suggestedCommands = [
   "접속 주소 목록 보여줘",
   "전체적인 상황 보여줘",
   "파드 목록 보여줘",
-  "엔드포인트 목 보여줘",
+  "엔드포인트 목록 보여줘",
 ]
 
 interface NaturalLanguageCommandProps {
