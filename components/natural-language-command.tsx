@@ -65,8 +65,8 @@ const suggestedCommands = [
   "디플로이먼트 목록 보여줘",
   "접속 주소 목록 보여줘",
   "전체적인 상황 보여줘",
-  "K-Le-PaaS/test01 롤백 목록 보여줘",
-  "K-Le-PaaS/test01 파드 상태 보여줘",
+  "파드 목록 보여줘",
+  "엔드포인트 목 보여줘",
 ]
 
 interface NaturalLanguageCommandProps {
