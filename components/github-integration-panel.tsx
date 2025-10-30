@@ -903,18 +903,22 @@ export function GitHubIntegrationPanel({ onNavigateToPipelines, initialTab = "re
       const result = await apiClient.connectRepository(newRepoOwner, newRepoName)
 
       // Refresh the integrations list
-      const data = await apiClient.getProjectIntegrations()
+      const response = await apiClient.getProjectIntegrations()
+
+      // Handle the actual API response structure (same as initial load)
+      const data = response.repositories || response.items || []
+
       const mapped: Repository[] = (Array.isArray(data) ? data : []).map((r: any, idx: number) => ({
         id: String(r.id ?? idx),
-        name: r.repo ?? r.name ?? "",
-        fullName: r.github_full_name ?? `${r.owner ?? r.github_owner}/${r.repo ?? r.github_repo}`,
-        connected: true,
-        lastSync: r.updated_at ? new Date(r.updated_at) : new Date(),
+        name: r.name ?? "",
+        fullName: r.fullName ?? r.github_full_name ?? `${r.owner ?? r.github_owner}/${r.name ?? r.github_repo}`,
+        connected: r.connected ?? true,
+        lastSync: r.lastSync ? new Date(r.lastSync) : (r.updated_at ? new Date(r.updated_at) : new Date()),
         branch: r.branch ?? "main",
-        status: (r.auto_deploy_enabled ? "active" : "inactive") as Repository["status"],
-        autoDeployEnabled: !!r.auto_deploy_enabled,
-        webhookConfigured: Boolean(r.github_webhook_secret),
-        htmlUrl: `https://github.com/${r.github_full_name}`,
+        status: (r.autoDeployEnabled || r.auto_deploy_enabled ? "active" : "inactive") as Repository["status"],
+        autoDeployEnabled: !!r.autoDeployEnabled || !!r.auto_deploy_enabled,
+        webhookConfigured: Boolean(r.webhookConfigured || r.github_webhook_secret),
+        htmlUrl: r.htmlUrl || `https://github.com/${r.fullName || r.github_full_name}`,
       }))
       setRepos(mapped)
 
