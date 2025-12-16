@@ -12,7 +12,6 @@ K-Le-PaaS 프론트엔드는 **AI-First Kubernetes PaaS**의 웹 콘솔입니다
 - **배포 모니터링**: 실시간 WebSocket 기반 배포 진행률·로그 스트리밍
 - **GitHub 연동**: GitHub OAuth, 저장소 연결, 워크플로우 트리거/상태 조회
 - **Slack/알림 설정**: 배포 성공/실패 알림 채널 설정
-- **MCP/에이전트 설정**: MCP 커넥터, 브리지, 환경/클러스터 설정 UI
 
 ---
 
@@ -70,9 +69,6 @@ CPU/메모리/디스크/네트워크 I/O를 포함한 클러스터 노드 상태
 
 상태 조회나 리스트 조회 등 일반적인 명령이 성공했을 때의 응답 예시입니다.
 
-![자연어 명령 에러 응답](screenshots/commands-console-error.png)
-
-권한 부족, 잘못된 리소스명 등으로 인해 명령이 실패했을 때의 에러 응답 예시입니다.
 
 ### 인증 및 온보딩
 
@@ -80,31 +76,6 @@ CPU/메모리/디스크/네트워크 I/O를 포함한 클러스터 노드 상태
 
 사용자가 K-Le-PaaS 콘솔에 처음 진입할 때 OAuth 인증을 안내하는 로그인/온보딩 화면입니다.
 
-![GitHub OAuth 동의 화면](screenshots/auth-github-oauth.png)
-
-GitHub 저장소 연동을 위해 GitHub 측에서 권한 동의를 받는 OAuth 플로우 예시입니다.
-
-### 설정(Settings) 화면
-
-![Organization 설정](screenshots/settings-organization.png)
-
-조직 이름, 로고, 기본 네임스페이스 등 조직 단위 설정을 관리하는 화면입니다.
-
-![환경 및 클러스터 설정](screenshots/settings-environments-clusters.png)
-
-스테이징/프로덕션 환경과 각 환경에 연결된 Kubernetes 클러스터를 관리하는 화면입니다.
-
-![에이전트 & 브리지 설정](screenshots/settings-agents-bridges.png)
-
-GCP/NCP 에이전트와 RabbitMQ·Prometheus 등의 브리지 상태를 확인하고 재연결할 수 있는 설정 화면입니다.
-
-![MCP 커넥터 설정](screenshots/settings-mcp-connectors.png)
-
-Claude·OpenAI·GitHub MCP 등 외부 MCP 서버 연결 상태와 토큰/엔드포인트를 관리하는 화면입니다.
-
-![Slack 알림 설정](screenshots/settings-slack-notifications.png)
-
-배포 성공/실패, 알람 등을 어떤 Slack 채널로 보낼지 설정하는 화면입니다.
 
 ### Slack 알림 예시
 
@@ -303,9 +274,4 @@ npm start
 
 ---
 
-## 📎 관련 문서 링크
-
-- 프론트엔드 아키텍처: `frontend/docs/FRONTEND_ARCHITECTURE.md`
-- 프론트엔드 환경 설정: `frontend/docs/ENVIRONMENT_SETUP.md`
-- 백엔드 아키텍처: `backend-hybrid/docs/architecture/BACKEND_ARCHITECTURE.md`
 
